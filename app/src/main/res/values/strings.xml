@@ -1,0 +1,143 @@
+<resources>
+    <string name="app_name">تور مجازی املاک</string>
+    <string name="tagline">پلتفرم بازدید ۳۶۰ درجه و واقعیت مجازی املاک</string>
+    
+    <!-- User Roles -->
+    <string name="role_agent">مشاور املاک</string>
+    <string name="role_agent_desc">ثبت املاک، ساخت تور مجازی ۳۶۰ درجه، اشتراک ویژه و مدیریت بازدیدها</string>
+    <string name="role_user">کاربر عادی</string>
+    <string name="role_user_desc">بازدید مجازی املاک، اشتراک‌گذاری کد معرف و دریافت پورسانت نقدی</string>
+    
+    <!-- Auth -->
+    <string name="login_title">ورود به حساب کاربری</string>
+    <string name="mobile_input_hint">شماره موبایل (مثلا: ۰۹۱۲۳۴۵۶۷۸۹)</string>
+    <string name="send_otp">ارسال کد تایید</string>
+    <string name="verify_otp_title">کد تایید پیامک شده</string>
+    <string name="otp_input_hint">کد ۵ رقمی</string>
+    <string name="verify_and_enter">تایید و ورود</string>
+    
+    <!-- Dashboard Agent -->
+    <string name="agent_dashboard">داشبورد مشاور املاک</string>
+    <string name="btn_create_tour">ساخت تور جدید</string>
+    <string name="btn_my_properties">املاک من</string>
+    <string name="btn_my_subscription">اشتراک من</string>
+    <string name="btn_profile">پروفایل کاربری</string>
+    
+    <!-- Dashboard User -->
+    <string name="user_dashboard">داشبورد کاربر عادی</string>
+    <string name="referral_code_title">کد معرف شما</string>
+    <string name="commission_stats_title">آمار و درآمد پورسانت</string>
+    <string name="btn_share_referral">اشتراک‌گذاری کد معرف</string>
+    
+    <!-- New Tour Form -->
+    <string name="new_tour_title">ساخت تور مجازی ملک</string>
+    <string name="property_title_hint">عنوان آگهی (مثلا: پنت‌هاوس ۲۵۰ متری فرمانیه)</string>
+    <string name="property_type">نوع ملک</string>
+    <string name="transaction_type">نوع معامله</string>
+    <string name="property_price">قیمت (تومان)</string>
+    <string name="property_area">متراژ (متر مربع)</string>
+    <string name="property_rooms">تعداد اتاق</string>
+    <string name="property_address">آدرس و موقعیت</string>
+    <string name="property_desc">توضیحات تکمیلی</string>
+    <string name="btn_save_tour">ثبت و ایجاد تور ۳۶۰</string>
+    
+    <!-- Subscriptions -->
+    <string name="subscription_title">طرح‌های اشتراک مشاورین</string>
+    <string name="plan_1_month">پلن ۱ ماهه</string>
+    <string name="plan_2_month">پلن ۲ ماهه (محبوب)</string>
+    <string name="plan_3_month">پلن ۳ ماهه (به‌صرفه‌ترین)</string>
+
+    <!-- 360 Camera & Stitching Strings (Persian) -->
+    <plurals name="capture_progress_frames">
+        <item quantity="one">فریم</item>
+        <item quantity="other">فریم</item>
+    </plurals>
+    <plurals name="capture_progress_description">
+        <item quantity="one">%1$d از %2$d فریم ثبت شده</item>
+        <item quantity="other">%1$d از %2$d فریم ثبت شده</item>
+    </plurals>
+    <plurals name="capture_rings">
+        <item quantity="one">%1$d از %2$d حلقه</item>
+        <item quantity="other">%1$d از %2$d حلقه</item>
+    </plurals>
+    <string name="capture_lock_focusing">در حال فوکوس…</string>
+    <string name="capture_lock_locked">فوکوس و نورسنجی قفل شد</string>
+    <string name="capture_lock_hint">برای فوکوس دستی روی تصویر ضربه بزنید</string>
+    <string name="capture_lock_fixed">لنز فوکوس ثابت</string>
+    <string name="capture_hint_search">نشانه‌گیر را روی نقطه هدف قرار دهید</string>
+    <string name="capture_hint_hold">گوشی را ثابت نگه دارید…</string>
+    <string name="capture_hint_ring_done">حلقه %1$d از %2$d ثبت شد — می‌توانید دوخت را شروع کنید یا ادامه دهید</string>
+    <string name="guidance_toggle_show">راهنمای صوتی</string>
+    <string name="guidance_toggle_hide">قطع صدا</string>
+    <string name="guidance_target">هدف بعدی: %1$s</string>
+    <string name="guidance_above">بالای سر</string>
+    <string name="guidance_below">پایین</string>
+    <string name="guidance_left">به سمت چپ</string>
+    <string name="guidance_right">به سمت راست</string>
+    <string name="guidance_behind">پشت سر</string>
+    <string name="capture_waiting_for_orientation">در حال کالیبراسیون ژیروسکوپ…</string>
+    <string name="capture_starting">در حال راه‌اندازی دوربین…</string>
+    <string name="capture_low_accuracy">دقت قطب‌نما پایین است — گوشی را به شکل ۸ انگلیسی حرکت دهید</string>
+    <string name="capture_accuracy_blocked">کالیبراسیون سنسور نامعتبر است — گوشی را حرکت دهید</string>
+    <string name="capture_orientation_unavailable">سنسور چرخش در دستگاه یافت نشد؛ حالت شبیه‌ساز فعال است.</string>
+    <string name="capture_sphere_complete">ثبت تمام ۳۶۰ درجه کامل شد</string>
+    <string name="capture_restart">شروع مجدد ثبت</string>
+    <string name="capture_undo">لغو آخرین عکس</string>
+    <string name="capture_finish_stitch">پایان و دوخت ۳۶۰</string>
+    <string name="capture_instructions_title">راهنمای عکاسی ۳۶۰ درجه</string>
+    <string name="capture_instructions_subtitle">هدف‌گیری · ثابت · ثبت خودکار</string>
+    <string name="capture_step_1">در جای خود بایستید</string>
+    <string name="capture_step_2">هدف‌گیری و مکث</string>
+    <string name="capture_step_3">فوکوس لمسی</string>
+    <string name="capture_step_4">محیط مناسب</string>
+    <string name="capture_instructions_1">در یک نقطه ثابت بایستید و فقط تنه و دست خود را بچرخانید، راه نروید.</string>
+    <string name="capture_instructions_2">دایره را با نقطه زرد هماهنگ کرده و ۳۰۰ میلی‌ثانیه ثابت نگه دارید؛ عکس خودکار گرفته می‌شود.</string>
+    <string name="capture_instructions_3">در صورت نیاز روی سوژه ضربه بزنید تا فوکوس شود.</string>
+    <string name="capture_instructions_4">گوشی را در یک ارتفاع نگه داشته و از چرخش ناگهانی خودداری کنید.</string>
+    <string name="capture_instructions_dismiss">شروع عکاسی</string>
+    <string name="capture_camera_lost">ارتباط با دوربین قطع شد</string>
+    <string name="capture_camera_unavailable">دوربین در دسترس نیست</string>
+    <string name="capture_camera_retry">تلاش مجدد</string>
+    <string name="capture_failed">خطا در ثبت فریم: %1$s</string>
+    <string name="capture_scope_sphere">کره کامل ۳۶۰</string>
+    <string name="capture_scope_ring">حلقه پانوراما</string>
+    <string name="stitch_title">در حال دوخت و ساخت تصویر ۳۶۰</string>
+    <string name="stitch_stage_preparing">آماده‌سازی فریم‌ها…</string>
+    <string name="stitch_stage_reading">خواندن تصاویر (%1$d / %2$d)</string>
+    <string name="stitch_stage_refining">تطبیق و اصلاح زوایا (%1$d / %2$d)</string>
+    <string name="stitch_stage_seaming">محاسبه درزهای دوخت…</string>
+    <string name="stitch_stage_stitching">ترکیب لایه‌ای تصاویر…</string>
+    <string name="stitch_stage_projecting">تولید تصویر کروی ۲:۱ متساوی‌المستطیل…</string>
+    <string name="stitch_cancel">لغو</string>
+    <string name="stitch_failed">دوخت تصویر با خطا مواجه شد. %1$s</string>
+    <string name="stitch_error_need_more_images">تعداد فریم‌ها کافی نیست. حداقل ۳ فریم متوالی ثبت کنید.</string>
+    <string name="stitch_error_alignment">فریم‌ها هم‌پوشانی کافی ندارند. دوربین را در جای ثابت بچرخانید.</string>
+    <string name="stitch_error_camera_estimation">تخمین زاویه دوربین ناموفق بود. مجدداً عکسبرداری کنید.</string>
+    <string name="stitch_error_opencv_unavailable">کتابخانه پردازش تصویر OpenCV در دسترس نیست.</string>
+    <string name="stitch_error_unreadable_input">یکی از فریم‌های ذخیره‌شده خوانده نشد.</string>
+    <string name="stitch_error_out_of_memory">حافظه موقت کافی نیست. برنامه‌های دیگر را ببندید.</string>
+    <string name="stitch_error_unknown">خطای ناشناخته در پردازش (کد %1$d).</string>
+    <string name="stitch_error_write_failed">ذخیره‌سازی تصویر نهایی با خطا مواجه شد.</string>
+    <string name="result_title">تصویر ۳۶۰ درجه شما</string>
+    <string name="result_badge">۳۶۰°</string>
+    <string name="result_dimensions">%1$d × %2$d · متساوی‌المستطیل</string>
+    <string name="result_preview_description">پیش‌نمایش تصویر تخت ۳۶۰ درجه</string>
+    <string name="result_view_flat">نمای تخت</string>
+    <string name="result_view_panorama">نمای تعاملی ۳۶۰</string>
+    <string name="result_view_panorama_description">مشاهده تعاملی ۳۶۰ درجه — برای چرخیدن انگشت بکشید و بزرگنمایی کنید</string>
+    <string name="result_export_in_progress">در حال ذخیره‌سازی…</string>
+    <string name="result_preview_failed">امکان نمایش پیش‌نمایش وجود ندارد اما فایل سالم ذخیره شده است.</string>
+    <string name="result_export">ذخیره در گالری</string>
+    <string name="result_exporting">در حال ذخیره در گالری…</string>
+    <string name="result_exported">در گالری ذخیره شد</string>
+    <string name="result_export_success">در مسیر %1$s ذخیره شد</string>
+    <string name="result_export_location">%1$s/%2$s</string>
+    <string name="result_export_failed">خطا در ذخیره در گالری: %1$s</string>
+    <string name="result_share">اشتراک‌گذاری</string>
+    <string name="result_share_failed">برنامه‌ای برای دریافت تصویر در این دستگاه یافت نشد.</string>
+    <string name="result_take_another">عکاسی مجدد</string>
+    <string name="result_discard_title">حذف تصویر؟</string>
+    <string name="result_discard_message">این تصویر هنوز در گالری ذخیره نشده و در صورت شروع مجدد حذف خواهد شد.</string>
+    <string name="result_discard_confirm">حذف</string>
+    <string name="result_discard_cancel">نگه‌داشتن</string>
+</resources>

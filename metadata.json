@@ -1,0 +1,6 @@
+{
+  "name": "تور مجازی املاک",
+  "description": "پلتفرم واقعیت مجازی و تور ۳۶۰ درجه املاک با امکانات ویژه مشاورین املاک و کاربران عادی",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
