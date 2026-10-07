@@ -75,6 +75,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.AppRepository
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import com.example.model.AdStatus
 import com.example.model.NotificationType
 import com.example.model.UserRole
 import com.example.model.WithdrawalStatus
@@ -606,12 +611,147 @@ fun AdminPanelScreen(
                             }
                         }
 
+                        // PENDING BANNER ADS SECTION (Issue 2)
+                        val pendingBannerAds = ads.filter { it.status == AdStatus.PENDING }
                         item {
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text("تبلیغات بنری شهری فعال در استان‌ها:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = AccentYellow.copy(alpha = 0.2f),
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.HourglassEmpty, contentDescription = null, tint = AccentYellow, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                                Text(
+                                    text = "تبلیغات بنری در انتظار تایید مدیریت (${PersianUtils.toPersianDigits(pendingBannerAds.size)} مورد)",
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = AccentYellow
+                                )
+                            }
                         }
 
-                        items(ads) { ad ->
+                        if (pendingBannerAds.isEmpty()) {
+                            item {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "هیچ بنر تبلیغاتی جدیدی در انتظار تایید نیست.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(14.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            items(pendingBannerAds, key = { it.id }) { ad ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    border = androidx.compose.foundation.BorderStroke(1.5.dp, AccentYellow.copy(alpha = 0.5f))
+                                ) {
+                                    Column(modifier = Modifier.padding(14.dp)) {
+                                        // Banner thumbnail + Info
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            // Thumbnail
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(110.dp)
+                                                    .height(75.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(Color.Black.copy(alpha = 0.3f))
+                                            ) {
+                                                if (ad.bannerImageUri != null) {
+                                                    AsyncImage(
+                                                        model = ad.bannerImageUri,
+                                                        contentDescription = "تصویر بنر",
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                } else {
+                                                    Image(
+                                                        painter = painterResource(id = ad.bannerDrawableRes),
+                                                        contentDescription = "تصویر بنر",
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                }
+                                            }
+
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(ad.propertyTitle, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                                                Text("مشاور: ${ad.agentName} (${ad.agentPhone})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text("استان و شهر: ${ad.province}، ${ad.city}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text("مدت: ${PersianUtils.toPersianDigits(ad.durationDays)} روز • تاریخ: ${ad.startDateJalali}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                                                Text("مبلغ پرداخت شده: ${PersianUtils.formatPrice(ad.price)}", fontWeight = FontWeight.Bold, color = BrandSecondary, style = MaterialTheme.typography.bodySmall)
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(12.dp))
+
+                                        // Approval & Rejection buttons
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Button(
+                                                onClick = {
+                                                    repository.approveAd(ad.id)
+                                                    Toast.makeText(context, "تبلیغ بنری با موفقیت تایید و منتشر شد", Toast.LENGTH_SHORT).show()
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = BrandSecondary),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("تایید و انتشار بنر")
+                                            }
+
+                                            Button(
+                                                onClick = {
+                                                    repository.deleteAd(ad.id)
+                                                    Toast.makeText(context, "تبلیغ رد و حذف گردید", Toast.LENGTH_SHORT).show()
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("رد تبلیغ")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ACTIVE BANNER ADS
+                        val activeBannerAds = ads.filter { it.status == AdStatus.ACTIVE }
+                        item {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "تبلیغات بنری شهری فعال در استان‌ها (${PersianUtils.toPersianDigits(activeBannerAds.size)} مورد):",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+
+                        items(activeBannerAds, key = { it.id }) { ad ->
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
@@ -624,9 +764,10 @@ fun AdminPanelScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Column {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(ad.propertyTitle, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-                                        Text("شهر: ${ad.city} • اعتبار: ${ad.endDateJalali} (${PersianUtils.toPersianDigits(ad.durationDays)} روزه)", style = MaterialTheme.typography.bodySmall, color = AccentYellow)
+                                        Text("مشاور: ${ad.agentName} • شهر: ${ad.city} • بازدید: ${PersianUtils.toPersianDigits(ad.viewCount)}", style = MaterialTheme.typography.bodySmall, color = AccentYellow)
+                                        Text("اعتبار تا: ${ad.endDateJalali} (${PersianUtils.toPersianDigits(ad.durationDays)} روزه)", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                                     }
                                     Text(PersianUtils.formatPrice(ad.price), fontWeight = FontWeight.Bold, color = BrandSecondary)
                                 }

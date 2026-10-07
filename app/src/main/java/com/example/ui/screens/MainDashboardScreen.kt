@@ -136,7 +136,7 @@ fun MainDashboardScreen(
     onRolePathSelected: (UserRole, isReferrer: Boolean) -> Unit,
     onCitySelected: (cityName: String) -> Unit,
     onOpenTourViewer: (PropertyItem) -> Unit,
-    onAdminPanelClick: () -> Unit,
+    onAdminPanelClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -161,9 +161,6 @@ fun MainDashboardScreen(
     var propertyForVisitBooking by remember { mutableStateOf<PropertyItem?>(null) }
     var visitDateInput by remember { mutableStateOf("۱۴۰۳/۰۷/۲۵") }
     var visitTimeInput by remember { mutableStateOf("۱۸:۰۰") }
-
-    // Admin Access Dialog
-    var showAdminAccessDialog by remember { mutableStateOf(false) }
 
     // Active Onboarding Carousel Sheet
     var activeOnboardingPath by remember { mutableStateOf<OnboardingPath?>(null) }
@@ -219,38 +216,7 @@ fun MainDashboardScreen(
                         }
                     }
                 },
-                actions = {
-                    // Separate Admin Panel Button for App Owner
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = AccentOrange.copy(alpha = 0.2f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, AccentOrange),
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable { showAdminAccessDialog = true }
-                            .testTag("btn_owner_admin_panel")
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Security,
-                                contentDescription = "پنل صاحب اپلیکیشن",
-                                tint = AccentOrange,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = "پنل صاحب اپ",
-                                color = AccentOrange,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                },
+                actions = {},
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = Color.White
@@ -874,47 +840,6 @@ fun MainDashboardScreen(
             },
             dismissButton = {
                 TextButton(onClick = { propertyForVisitBooking = null }) {
-                    Text("انصراف")
-                }
-            }
-        )
-    }
-
-    // Admin Access Dialog (Separating Admin Panel for App Owner)
-    if (showAdminAccessDialog) {
-        AlertDialog(
-            onDismissRequest = { showAdminAccessDialog = false },
-            icon = {
-                Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(36.dp))
-            },
-            title = {
-                Text(
-                    text = "ورود به پنل مدیریت کل (صاحب اپلیکیشن)",
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-            },
-            text = {
-                Text(
-                    text = "این بخش منحصراً برای مدیریت کل، ارسال نوتیفیکیشن به کاربران و مشاورین، بررسی واریزی‌های ۲۴ ساعته و تنظیمات سامانه است.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 22.sp
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showAdminAccessDialog = false
-                        onAdminPanelClick()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentOrange)
-                ) {
-                    Text("ورود به پنل مدیریت")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAdminAccessDialog = false }) {
                     Text("انصراف")
                 }
             }

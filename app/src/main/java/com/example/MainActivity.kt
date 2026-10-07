@@ -22,10 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import com.example.data.AppRepository
+import com.example.model.AdItem
 import com.example.model.PropertyItem
 import com.example.model.UserRole
-import com.example.ui.screens.AdminPanelScreen
 import com.example.ui.screens.AgentDashboardScreen
+import com.example.ui.screens.AgentPublicProfileScreen
 import com.example.ui.screens.Capture360Screen
 import com.example.ui.screens.CityAdsCreateScreen
 import com.example.ui.screens.CityAdsViewScreen
@@ -54,9 +55,9 @@ enum class Screen {
     MY_PROPERTIES,
     CITY_ADS_VIEW,
     CITY_ADS_CREATE,
+    AGENT_PUBLIC_PROFILE,
     SUBSCRIPTION,
     PROPERTY_DETAIL,
-    ADMIN_PANEL,
     NOTIFICATION_CENTER,
     PROFILE
 }
@@ -86,6 +87,7 @@ fun RealEstateTourApp(repository: AppRepository) {
     var currentScreen by remember { mutableStateOf(Screen.SPLASH) }
     var selectedRole by remember { mutableStateOf(UserRole.AGENT) }
     var activePropertyForTour by remember { mutableStateOf<PropertyItem?>(null) }
+    var activeAdForProfile by remember { mutableStateOf<AdItem?>(null) }
     var selectedCityForAds by remember { mutableStateOf<String?>("ساری") }
     var screenHistory by remember { mutableStateOf(listOf(Screen.SPLASH)) }
 
@@ -103,6 +105,7 @@ fun RealEstateTourApp(repository: AppRepository) {
             currentScreen = when (selectedRole) {
                 UserRole.AGENT -> Screen.AGENT_DASHBOARD
                 UserRole.REGULAR_USER -> Screen.USER_DASHBOARD
+                UserRole.PUBLIC_VISITOR -> Screen.MAIN_DASHBOARD
             }
         }
     }
@@ -122,11 +125,12 @@ fun RealEstateTourApp(repository: AppRepository) {
         label = "screen_transition"
     ) { screen ->
         when (screen) {
+            // Issue 8: After 3-second splash screen, navigate to user type selection
             Screen.SPLASH -> {
                 SplashScreen(
                     onSplashFinished = {
-                        currentScreen = Screen.MAIN_DASHBOARD
-                        screenHistory = listOf(Screen.MAIN_DASHBOARD)
+                        currentScreen = Screen.ROLE_SELECTION
+                        screenHistory = listOf(Screen.ROLE_SELECTION)
                     }
                 )
             }
@@ -146,26 +150,31 @@ fun RealEstateTourApp(repository: AppRepository) {
                     onOpenTourViewer = { property ->
                         activePropertyForTour = property
                         navigateTo(Screen.PROPERTY_DETAIL)
-                    },
-                    onAdminPanelClick = {
-                        navigateTo(Screen.ADMIN_PANEL)
                     }
                 )
             }
 
+            // Issue 9: Updated user type selection naming & routing
             Screen.ROLE_SELECTION -> {
                 RoleSelectionScreen(
                     onRoleSelected = { role ->
-                        selectedRole = role
-                        repository.setRole(role)
-                        navigateTo(Screen.LOGIN)
+                        if (role == UserRole.PUBLIC_VISITOR) {
+                            currentScreen = Screen.MAIN_DASHBOARD
+                            screenHistory = listOf(Screen.MAIN_DASHBOARD)
+                        } else {
+                            selectedRole = role
+                            repository.setRole(role)
+                            navigateTo(Screen.LOGIN)
+                        }
                     }
                 )
             }
 
+            // Issue 7: Full Registration and OTP Login
             Screen.LOGIN -> {
                 LoginScreen(
                     role = selectedRole,
+                    repository = repository,
                     onLoginSuccess = { phone, role ->
                         repository.login(phone, role)
                         if (role == UserRole.AGENT) {
@@ -187,7 +196,7 @@ fun RealEstateTourApp(repository: AppRepository) {
                     onMyPropertiesClick = { navigateTo(Screen.MY_PROPERTIES) },
                     onSubscriptionClick = { navigateTo(Screen.SUBSCRIPTION) },
                     onCityAdsClick = { navigateTo(Screen.CITY_ADS_VIEW) },
-                    onAnalyticsClick = { navigateTo(Screen.ADMIN_PANEL) },
+                    onAnalyticsClick = { navigateTo(Screen.CITY_ADS_VIEW) },
                     onNotificationsClick = { navigateTo(Screen.NOTIFICATION_CENTER) },
                     onCapture360Click = { navigateTo(Screen.CAPTURE_360) },
                     onProfileClick = { navigateTo(Screen.PROFILE) },
@@ -249,6 +258,7 @@ fun RealEstateTourApp(repository: AppRepository) {
                 )
             }
 
+            // Issue 3 & Issue 6: City Ads View with Agent Profile Redirect & Create Ad
             Screen.CITY_ADS_VIEW -> {
                 CityAdsViewScreen(
                     repository = repository,
@@ -257,6 +267,10 @@ fun RealEstateTourApp(repository: AppRepository) {
                         activePropertyForTour = property
                         navigateTo(Screen.PROPERTY_DETAIL)
                     },
+                    onOpenAgentProfile = { ad ->
+                        activeAdForProfile = ad
+                        navigateTo(Screen.AGENT_PUBLIC_PROFILE)
+                    },
                     onCreateAdClick = {
                         navigateTo(Screen.CITY_ADS_CREATE)
                     },
@@ -264,11 +278,28 @@ fun RealEstateTourApp(repository: AppRepository) {
                 )
             }
 
+            // Issue 1, 2, 4, 10: Create City Ad with Real-Time Pricing, Gallery Upload, Clean Payment
             Screen.CITY_ADS_CREATE -> {
                 CityAdsCreateScreen(
                     repository = repository,
                     onAdCreated = {
                         navigateTo(Screen.CITY_ADS_VIEW)
+                    },
+                    onBackClick = { navigateBack() }
+                )
+            }
+
+            // Issue 3: Agent Public Profile with Active 360 Tours & Views Count
+            Screen.AGENT_PUBLIC_PROFILE -> {
+                val ad = activeAdForProfile
+                AgentPublicProfileScreen(
+                    agentName = ad?.agentName ?: "مهندس کیان آریا",
+                    city = ad?.city ?: selectedCityForAds ?: "ساری",
+                    bannerViewCount = ad?.viewCount ?: 0,
+                    repository = repository,
+                    onOpenTour = { property ->
+                        activePropertyForTour = property
+                        navigateTo(Screen.PROPERTY_DETAIL)
                     },
                     onBackClick = { navigateBack() }
                 )
@@ -290,13 +321,6 @@ fun RealEstateTourApp(repository: AppRepository) {
                 )
             }
 
-            Screen.ADMIN_PANEL -> {
-                AdminPanelScreen(
-                    repository = repository,
-                    onBackClick = { navigateBack() }
-                )
-            }
-
             Screen.NOTIFICATION_CENTER -> {
                 NotificationCenterScreen(
                     repository = repository,
@@ -309,11 +333,10 @@ fun RealEstateTourApp(repository: AppRepository) {
                     repository = repository,
                     onSubscriptionClick = { navigateTo(Screen.SUBSCRIPTION) },
                     onNotificationClick = { navigateTo(Screen.NOTIFICATION_CENTER) },
-                    onAdminPanelClick = { navigateTo(Screen.ADMIN_PANEL) },
-                    onSwitchRoleClick = { navigateTo(Screen.MAIN_DASHBOARD) },
+                    onSwitchRoleClick = { navigateTo(Screen.ROLE_SELECTION) },
                     onLogoutClick = {
-                        currentScreen = Screen.MAIN_DASHBOARD
-                        screenHistory = listOf(Screen.MAIN_DASHBOARD)
+                        currentScreen = Screen.ROLE_SELECTION
+                        screenHistory = listOf(Screen.ROLE_SELECTION)
                     },
                     onBackClick = { navigateBack() }
                 )

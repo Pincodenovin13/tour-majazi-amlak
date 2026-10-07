@@ -135,6 +135,10 @@ fun AgentDashboardScreen(
     val remainingDays = activeSubscription?.remainingDays ?: 0
 
     val totalViews = properties.sumOf { it.viewsCount } + ads.sumOf { it.viewCount }
+    val myAds = ads.filter { it.agentName == userName || it.agentId == "agent_current" }
+    val totalAdViews = myAds.sumOf { it.viewCount }
+    val activeAdsCount = myAds.count { it.status == com.example.model.AdStatus.ACTIVE }
+    val pendingAdsCount = myAds.count { it.status == com.example.model.AdStatus.PENDING }
 
     // Modals
     var showCoverChangeDialog by remember { mutableStateOf(false) }
@@ -542,12 +546,12 @@ fun AgentDashboardScreen(
 
                     AgentGridButton(
                         title = "تبلیغات شهری",
-                        subtitle = "بنر با اسلایدر ۱ تا ۳۰ روز",
+                        subtitle = "${PersianUtils.toPersianDigits(totalAdViews)} بازدید تبلیغ",
                         icon = Icons.Default.Campaign,
                         color = ColorAds,
                         modifier = Modifier.weight(1f),
                         onClick = onCityAdsClick,
-                        badge = "تعرفه دقیق",
+                        badge = if (activeAdsCount > 0) "${PersianUtils.toPersianDigits(activeAdsCount)} فعال" else null,
                         testTag = "btn_grid_city_ads"
                     )
                 }
@@ -577,6 +581,109 @@ fun AgentDashboardScreen(
                         onClick = onProfileClick,
                         testTag = "btn_grid_profile"
                     )
+                }
+            }
+        }
+
+        // 3.5. BANNER AD MANAGEMENT & VIEW TRACKING CARD (Issue 3)
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AccentOrange.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.Campaign, contentDescription = null, tint = AccentOrange)
+                            Text(
+                                text = "مدیریت تبلیغات بنری و آمار بازدید",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+
+                        Button(
+                            onClick = onCityAdsClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Text("ثبت تبلیغ جدید", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(Icons.Default.Visibility, contentDescription = null, tint = AccentYellow, modifier = Modifier.size(16.dp))
+                                    Text(
+                                        text = "${PersianUtils.toPersianDigits(totalAdViews)} بازدید",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = AccentYellow
+                                    )
+                                }
+                                Text("بازدید کل بنرها", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(Icons.Default.Campaign, contentDescription = null, tint = BrandSecondary, modifier = Modifier.size(16.dp))
+                                    Text(
+                                        text = "${PersianUtils.toPersianDigits(activeAdsCount)} فعال",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = BrandSecondary
+                                    )
+                                }
+                                Text(
+                                    text = if (pendingAdsCount > 0) "${PersianUtils.toPersianDigits(pendingAdsCount)} در انتظار" else "بنرهای منتشر شده",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (pendingAdsCount > 0) AccentYellow else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

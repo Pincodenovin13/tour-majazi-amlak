@@ -38,10 +38,6 @@ object PersianUtils {
                     "${toPersianDigits(String.format(Locale.US, "%.1f", billions))} میلیارد تومان"
                 }
             }
-            amountToman >= 1_000_000L -> {
-                val millions = amountToman / 1_000_000L
-                "${toPersianDigits(millions)} میلیون تومان"
-            }
             else -> {
                 "${toPersianDigits(amountToman)} تومان"
             }

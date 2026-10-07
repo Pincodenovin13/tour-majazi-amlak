@@ -31,19 +31,22 @@ import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.RotateRight
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -69,9 +72,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.R
 import com.example.data.AppRepository
 import com.example.model.AdItem
@@ -90,6 +95,7 @@ fun CityAdsViewScreen(
     repository: AppRepository,
     initialCity: String? = null,
     onOpenTour: (PropertyItem) -> Unit,
+    onOpenAgentProfile: (AdItem) -> Unit,
     onCreateAdClick: () -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -99,20 +105,25 @@ fun CityAdsViewScreen(
     val properties by repository.properties.collectAsState()
     val cities = repository.iranianCities
 
-    var selectedCityName by remember(initialCity) { mutableStateOf(initialCity ?: "ساری") } // Default as requested in prompt: مثلاً ساری
+    var selectedCityName by remember(initialCity) { mutableStateOf(initialCity ?: "ساری") }
 
-    // Filtered ads by city and active status
+    // Active Ads for selected city
     val cityAds = allAds.filter {
         (it.city == selectedCityName || it.city == "سراسری") && it.status == AdStatus.ACTIVE
     }
 
-    // 2.2 — 5-second Auto-rotation Carousel Index
+    // Pending Ads (Waiting for admin approval)
+    val pendingAds = allAds.filter {
+        (it.city == selectedCityName || it.city == "سراسری") && it.status == AdStatus.PENDING
+    }
+
+    // Auto-rotating Carousel Index (every 5 seconds)
     var currentCarouselIndex by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(cityAds.size, selectedCityName) {
         currentCarouselIndex = 0
         while (cityAds.isNotEmpty()) {
-            delay(5000) // 5 seconds per banner
+            delay(5000)
             currentCarouselIndex = (currentCarouselIndex + 1) % cityAds.size
         }
     }
@@ -128,7 +139,7 @@ fun CityAdsViewScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "تورهای ۳۶۰ درجه برگزیده در شهر $selectedCityName",
+                            text = "تورهای ۳۶۰ درجه و بنرهای ویژه شهر $selectedCityName",
                             style = MaterialTheme.typography.bodySmall,
                             color = AccentYellow
                         )
@@ -142,21 +153,32 @@ fun CityAdsViewScreen(
                         )
                     }
                 },
-                actions = {
-                    IconButton(onClick = onCreateAdClick) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "ثبت تبلیغ جدید",
-                            tint = AccentOrange
-                        )
-                    }
-                },
+                // Issue 6: Remove the confusing "+" icon from the top bar!
+                actions = {},
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
             )
+        },
+        // Issue 6: Clear, prominent "ثبت تبلیغ جدید" button as FloatingActionButton
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = onCreateAdClick,
+                containerColor = AccentOrange,
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.testTag("fab_create_ad")
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "ثبت تبلیغ جدید",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleSmall
+                )
+            }
         }
     ) { innerPadding ->
         LazyColumn(
@@ -165,20 +187,114 @@ fun CityAdsViewScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
                 .testTag("city_ads_view_screen"),
-            contentPadding = PaddingValues(bottom = 32.dp),
+            contentPadding = PaddingValues(bottom = 90.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 2.3 — Dedicated Section at Top: OUR OWN APP ADS
-            if (platformAds.isNotEmpty()) {
+            // PROMINENT HERO ACTION BANNER (Issue 6)
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .clickable { onCreateAdClick() },
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, AccentOrange)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = AccentOrange.copy(alpha = 0.15f),
+                                modifier = Modifier.size(46.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Campaign, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(24.dp))
+                                }
+                            }
+
+                            Column {
+                                Text(
+                                    text = "ثبت تبلیغ بنری جدید در $selectedCityName",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "نمایش بنر با تعرفه پلکانی روزانه و اتصال به پروفایل مشاور",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = onCreateAdClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("ثبت تبلیغ", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+            }
+
+            // City Filter Chips
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    Text(
+                        text = "انتخاب سریع شهر:",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(cities) { city ->
+                            val isSelected = city.name == selectedCityName
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedCityName = city.name },
+                                label = { Text(city.name, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                leadingIcon = {
+                                    if (isSelected) {
+                                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    } else {
+                                        Icon(Icons.Default.LocationCity, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    }
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = AccentOrange,
+                                    selectedLabelColor = Color.White,
+                                    selectedLeadingIconColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // PENDING ADS SECTION (Issue 2 & 6: Showing "در انتظار تایید")
+            if (pendingAds.isNotEmpty()) {
                 item {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AccentYellow, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.HourglassEmpty, contentDescription = null, tint = AccentYellow, modifier = Modifier.size(18.dp))
                             Text(
-                                text = "تبلیغات و خدمات ویژه سامانه",
+                                text = "تبلیغات در انتظار تایید مدیریت (${PersianUtils.toPersianDigits(pendingAds.size)} مورد)",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = AccentYellow
@@ -187,66 +303,63 @@ fun CityAdsViewScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        platformAds.forEach { pad ->
+                        pendingAds.forEach { pad ->
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp),
-                                shape = RoundedCornerShape(16.dp),
+                                shape = RoundedCornerShape(14.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, AccentYellow.copy(alpha = 0.5f))
                             ) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(14.dp),
+                                        .padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     Surface(
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = BrandPrimary,
-                                        modifier = Modifier.size(46.dp)
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = AccentYellow.copy(alpha = 0.15f),
+                                        modifier = Modifier.size(54.dp)
                                     ) {
                                         Box(contentAlignment = Alignment.Center) {
-                                            Image(
-                                                painter = painterResource(id = pad.bannerDrawableRes),
-                                                contentDescription = null,
-                                                modifier = Modifier.size(32.dp)
-                                            )
+                                            if (pad.bannerImageUri != null) {
+                                                AsyncImage(
+                                                    model = pad.bannerImageUri,
+                                                    contentDescription = null,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp))
+                                                )
+                                            } else {
+                                                Image(
+                                                    painter = painterResource(id = pad.bannerDrawableRes),
+                                                    contentDescription = null,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp))
+                                                )
+                                            }
                                         }
                                     }
 
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = pad.propertyTitle,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
-                                        pad.platformAdSubtitle?.let { sub ->
-                                            Text(
-                                                text = sub,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
+                                        Text(pad.propertyTitle, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text("شهر: ${pad.city} • مدت: ${PersianUtils.toPersianDigits(pad.durationDays)} روز", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
 
-                                    pad.platformActionText?.let { btnText ->
-                                        Surface(
-                                            shape = RoundedCornerShape(8.dp),
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = AccentYellow.copy(alpha = 0.2f)
+                                    ) {
+                                        Text(
+                                            text = "در انتظار تایید",
                                             color = AccentYellow,
-                                            modifier = Modifier.clickable { onCreateAdClick() }
-                                        ) {
-                                            Text(
-                                                text = btnText,
-                                                color = Color.Black,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
-                                            )
-                                        }
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
                                     }
                                 }
                             }
@@ -255,43 +368,7 @@ fun CityAdsViewScreen(
                 }
             }
 
-            // 2.2 — City Selector Chips (مثلاً ساری، تهران، شیراز، مشهد، اصفهان، تبریز...)
-            item {
-                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Text(
-                        text = "انتخاب شهر برای مشاهده بنرها:",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    val displayedCities = remember(selectedCityName) {
-                        val base = listOf("ساری", "تهران", "مشهد", "شیراز", "اصفهان", "کرج", "رشت", "تبریز", "اهواز", "قم", "کرمان")
-                        if (selectedCityName !in base) listOf(selectedCityName) + base else base
-                    }
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(displayedCities) { city ->
-                            FilterChip(
-                                selected = selectedCityName == city,
-                                onClick = { selectedCityName = city },
-                                label = { Text(city) },
-                                leadingIcon = if (selectedCityName == city) {
-                                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                } else null,
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AccentOrange,
-                                    selectedLabelColor = Color.White,
-                                    selectedLeadingIconColor = Color.White
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            // 2.2 — Banner Carousel (Auto-rotates every 5 seconds)
+            // CAROUSEL BANNER SECTION (Issue 3: Tracking & Profile Redirect)
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Row(
@@ -350,7 +427,7 @@ fun CityAdsViewScreen(
                         val activeAd = cityAds[currentCarouselIndex % cityAds.size]
                         val prop = properties.find { it.id == activeAd.propertyId } ?: properties.first()
 
-                        // Carousel Banner Card
+                        // Carousel Banner Card (Issue 3: Clicking increments views & redirects to agent profile)
                         AnimatedContent(
                             targetState = activeAd,
                             transitionSpec = { fadeIn() togetherWith fadeOut() },
@@ -360,7 +437,10 @@ fun CityAdsViewScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(18.dp))
-                                    .clickable { onOpenTour(prop) }
+                                    .clickable {
+                                        repository.incrementAdViewCount(ad.id)
+                                        onOpenAgentProfile(ad)
+                                    }
                                     .testTag("carousel_banner_item"),
                                 shape = RoundedCornerShape(18.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -371,12 +451,21 @@ fun CityAdsViewScreen(
                                         .fillMaxWidth()
                                         .height(230.dp)
                                 ) {
-                                    Image(
-                                        painter = painterResource(id = ad.bannerDrawableRes),
-                                        contentDescription = ad.propertyTitle,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
+                                    if (ad.bannerImageUri != null) {
+                                        AsyncImage(
+                                            model = ad.bannerImageUri,
+                                            contentDescription = ad.propertyTitle,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else {
+                                        Image(
+                                            painter = painterResource(id = ad.bannerDrawableRes),
+                                            contentDescription = ad.propertyTitle,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
 
                                     // Gradient Overlay
                                     Box(
@@ -420,27 +509,49 @@ fun CityAdsViewScreen(
                                             }
                                         }
 
-                                        Surface(
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = BrandSecondary
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        // View Count & 360 Badge (Issue 3)
+                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Surface(
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = Color.Black.copy(alpha = 0.7f)
                                             ) {
-                                                Icon(Icons.Default.RotateRight, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                                                Text(
-                                                    text = "تور ۳۶۰ فعال",
-                                                    color = Color.White,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    fontWeight = FontWeight.Bold
-                                                )
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Visibility, contentDescription = null, tint = AccentYellow, modifier = Modifier.size(14.dp))
+                                                    Text(
+                                                        text = "${PersianUtils.toPersianDigits(ad.viewCount)} بازدید",
+                                                        color = AccentYellow,
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+
+                                            Surface(
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = BrandSecondary
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    Icon(Icons.Default.RotateRight, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                                    Text(
+                                                        text = "تور ۳۶۰",
+                                                        color = Color.White,
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
                                             }
                                         }
                                     }
 
-                                    // Bottom Property Info
+                                    // Bottom Property Info & Agent Profile Prompt
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -463,19 +574,29 @@ fun CityAdsViewScreen(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text(
-                                                text = "مشاور: ${ad.agentName} • تا تاریخ ${ad.endDateJalali}",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = Color.White.copy(alpha = 0.8f)
-                                            )
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Icon(Icons.Default.Person, contentDescription = null, tint = AccentYellow, modifier = Modifier.size(14.dp))
+                                                Text(
+                                                    text = "مشاور: ${ad.agentName}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = Color.White.copy(alpha = 0.9f),
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
 
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = AccentYellow,
-                                                modifier = Modifier.clickable { onOpenTour(prop) }
+                                                modifier = Modifier.clickable {
+                                                    repository.incrementAdViewCount(ad.id)
+                                                    onOpenAgentProfile(ad)
+                                                }
                                             ) {
                                                 Text(
-                                                    text = "مشاهده تور ۳۶۰°",
+                                                    text = "پروفایل مشاور و تورها",
                                                     color = Color.Black,
                                                     style = MaterialTheme.typography.labelSmall,
                                                     fontWeight = FontWeight.Bold,
@@ -488,7 +609,7 @@ fun CityAdsViewScreen(
                             }
                         }
 
-                        // Dot indicators for 5s carousel
+                        // Dot indicators
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -509,7 +630,7 @@ fun CityAdsViewScreen(
                 }
             }
 
-            // All City Ads List below carousel
+            // LIST OF ALL CITY ADS BELOW CAROUSEL
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Text(
@@ -528,7 +649,10 @@ fun CityAdsViewScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .clickable { onOpenTour(prop) },
+                        .clickable {
+                            repository.incrementAdViewCount(adItem.id)
+                            onOpenAgentProfile(adItem)
+                        },
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Row(
@@ -538,14 +662,25 @@ fun CityAdsViewScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Image(
-                            painter = painterResource(id = adItem.bannerDrawableRes),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(70.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                        )
+                        if (adItem.bannerImageUri != null) {
+                            AsyncImage(
+                                model = adItem.bannerImageUri,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(70.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                            )
+                        } else {
+                            Image(
+                                painter = painterResource(id = adItem.bannerDrawableRes),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(70.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                            )
+                        }
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
@@ -557,20 +692,35 @@ fun CityAdsViewScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "${adItem.city} • اعتبار: ${adItem.endDateJalali}",
+                                text = "مشاور: ${adItem.agentName} • ${adItem.city}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "${PersianUtils.toPersianDigits(adItem.viewCount)} بازدید",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = AccentYellow
-                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    Icon(Icons.Default.Visibility, contentDescription = null, tint = AccentYellow, modifier = Modifier.size(14.dp))
+                                    Text(
+                                        text = "${PersianUtils.toPersianDigits(adItem.viewCount)} بازدید تبلیغ",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = AccentYellow,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
 
                         Button(
-                            onClick = { onOpenTour(prop) },
+                            onClick = {
+                                repository.incrementAdViewCount(adItem.id)
+                                onOpenTour(prop)
+                            },
                             colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
                             shape = RoundedCornerShape(8.dp)
                         ) {

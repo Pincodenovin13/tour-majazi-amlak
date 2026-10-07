@@ -80,7 +80,7 @@ fun ProfileScreen(
     repository: AppRepository,
     onSubscriptionClick: () -> Unit,
     onNotificationClick: () -> Unit,
-    onAdminPanelClick: () -> Unit,
+    onAdminPanelClick: () -> Unit = {},
     onSwitchRoleClick: () -> Unit,
     onLogoutClick: () -> Unit,
     onBackClick: () -> Unit,

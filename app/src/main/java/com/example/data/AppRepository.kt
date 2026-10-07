@@ -46,8 +46,48 @@ class AppRepository {
     private val _agencyName = MutableStateFlow("املاک مدرن شمیران")
     val agencyName: StateFlow<String> = _agencyName.asStateFlow()
 
+    private val _userProvince = MutableStateFlow("مازندران")
+    val userProvince: StateFlow<String> = _userProvince.asStateFlow()
+
+    private val _userCity = MutableStateFlow("ساری")
+    val userCity: StateFlow<String> = _userCity.asStateFlow()
+
+    private val _userWhatsapp = MutableStateFlow("۰۹۱۲۳۴۵۶۷۸۹")
+    val userWhatsapp: StateFlow<String> = _userWhatsapp.asStateFlow()
+
+    private val _userTelegram = MutableStateFlow("@amlak_modern")
+    val userTelegram: StateFlow<String> = _userTelegram.asStateFlow()
+
     private val _referralCodeInput = MutableStateFlow("VR-98421") // Agent's referrer code
     val referralCodeInput: StateFlow<String> = _referralCodeInput.asStateFlow()
+
+    private val _referralRecords = MutableStateFlow<List<com.example.model.ReferralRecord>>(
+        listOf(
+            com.example.model.ReferralRecord(
+                id = "ref_1",
+                referrerCode = "VR-98421",
+                referrerName = "علی حسینی",
+                referredAgentName = "مهندس شایان نیاورانی",
+                referredAgentPhone = "۰۹۱۲۱۱۱۴۴۵۵",
+                registeredDateJalali = "۱۴۰۳/۰۷/۱۰",
+                initialBonusToman = 200_000L,
+                totalPurchasedAmountToman = 4_000_000L,
+                totalCommissionEarnedToman = 600_000L
+            ),
+            com.example.model.ReferralRecord(
+                id = "ref_2",
+                referrerCode = "VR-98421",
+                referrerName = "علی حسینی",
+                referredAgentName = "مهندس فرید طبرستانی",
+                referredAgentPhone = "۰۹۱۱۸۸۸۲۲۳۳",
+                registeredDateJalali = "۱۴۰۳/۰۷/۱۲",
+                initialBonusToman = 200_000L,
+                totalPurchasedAmountToman = 2_500_000L,
+                totalCommissionEarnedToman = 575_000L
+            )
+        )
+    )
+    val referralRecords: StateFlow<List<com.example.model.ReferralRecord>> = _referralRecords.asStateFlow()
 
     // Agent Cover Image (Real Estate Agency Office) & Profile Avatar (Agent Face)
     private val _agentCoverRes = MutableStateFlow(R.drawable.img_tour_sample)
@@ -517,23 +557,26 @@ class AppRepository {
         }
     }
 
-    // 2.1 — Create Banner Ad
+    // 2.1 — Create Banner Ad (Pending admin approval)
     fun createAd(
         propertyId: String?,
         propertyTitle: String,
         city: String,
         province: String,
         durationDays: Int,
-        bannerDrawableRes: Int = R.drawable.img_tour_sample
+        bannerDrawableRes: Int = R.drawable.img_tour_sample,
+        bannerImageUri: String? = null
     ): AdItem {
         val price = calculateAdPrice(city, durationDays)
         val startDateJalali = JalaliDateHelper.formatJalaliDateOnly(System.currentTimeMillis())
         val endDateJalali = JalaliDateHelper.formatJalaliDateOnly(System.currentTimeMillis() + (durationDays.toLong() * 24 * 3600 * 1000))
+        val nowTimeFa = JalaliDateHelper.formatTimeOnly(System.currentTimeMillis())
 
         val newAd = AdItem(
             id = "ad_${System.currentTimeMillis()}",
             agentId = "agent_current",
             agentName = _userName.value,
+            agentPhone = _userPhone.value,
             propertyId = propertyId,
             propertyTitle = propertyTitle,
             city = city,
@@ -543,19 +586,121 @@ class AppRepository {
             startDateJalali = startDateJalali,
             endDateJalali = endDateJalali,
             bannerDrawableRes = bannerDrawableRes,
-            status = AdStatus.ACTIVE,
+            bannerImageUri = bannerImageUri,
+            status = AdStatus.PENDING, // Starts in PENDING until admin approves
             paymentStatus = PaymentStatus.PAID,
-            viewCount = 1,
+            viewCount = 0,
             contactCount = 0
         )
         _ads.update { listOf(newAd) + it }
+
+        // Send detailed in-app notification to Admin Panel
         addNotification(
-            title = "تبلیغ بنری شهری فعال شد",
-            message = "تبلیغ بنری شما در شهر $city با موفقیت ثبت و فعال گردید.",
+            title = "تبلیغ بنری جدید در انتظار تایید مدیریت",
+            message = "مشاور: ${_userName.value} (${_userPhone.value}) | استان: $province، شهر: $city | مدت: $durationDays روز | مبلغ پرداختی: ${PersianUtils.formatPrice(price)} | تاریخ و زمان: $startDateJalali ساعت $nowTimeFa | بنر آپلود شده آماده بررسی است.",
             type = NotificationType.GENERAL,
             targetRole = UserRole.AGENT
         )
+
         return newAd
+    }
+
+    fun approveAd(adId: String) {
+        _ads.update { list ->
+            list.map { if (it.id == adId) it.copy(status = AdStatus.ACTIVE) else it }
+        }
+        val ad = _ads.value.find { it.id == adId }
+        addNotification(
+            title = "تبلیغ شما تایید و منتشر شد!",
+            message = "تبلیغ بنری شما در شهر ${ad?.city ?: ""} با تایید مدیریت فعال گردید.",
+            type = NotificationType.GENERAL,
+            targetRole = UserRole.AGENT
+        )
+    }
+
+    fun deleteAd(adId: String) {
+        _ads.update { list -> list.filterNot { it.id == adId } }
+    }
+
+    fun incrementAdViewCount(adId: String) {
+        _ads.update { list ->
+            list.map { if (it.id == adId) it.copy(viewCount = it.viewCount + 1) else it }
+        }
+    }
+
+    fun getAgentTotalAdViews(agentName: String = _userName.value): Int {
+        return _ads.value.filter { it.agentName == agentName || it.agentId == "agent_current" }.sumOf { it.viewCount }
+    }
+
+    fun registerUser(
+        name: String,
+        phone: String,
+        role: UserRole,
+        province: String,
+        city: String,
+        agency: String = "",
+        whatsapp: String = "",
+        telegram: String = "",
+        referralCodeEntered: String = ""
+    ): String {
+        _userName.value = name
+        _userPhone.value = phone
+        _currentUserRole.value = role
+        _userProvince.value = province
+        _userCity.value = city
+        if (agency.isNotBlank()) _agencyName.value = agency
+        if (whatsapp.isNotBlank()) _userWhatsapp.value = whatsapp
+        if (telegram.isNotBlank()) _userTelegram.value = telegram
+
+        val generatedCode = "VR-${(10000..99999).random()}"
+        if (role == UserRole.REGULAR_USER) {
+            val curComm = _commissionStat.value
+            _commissionStat.value = curComm.copy(referralCode = generatedCode)
+        }
+
+        if (role == UserRole.AGENT && referralCodeEntered.isNotBlank()) {
+            val newRecord = com.example.model.ReferralRecord(
+                id = "ref_${System.currentTimeMillis()}",
+                referrerCode = referralCodeEntered.trim().uppercase(),
+                referrerName = "معرف با کد ${referralCodeEntered.trim().uppercase()}",
+                referredAgentName = name,
+                referredAgentPhone = phone,
+                registeredDateJalali = JalaliDateHelper.formatJalaliDateOnly(System.currentTimeMillis()),
+                initialBonusToman = 200_000L,
+                totalPurchasedAmountToman = 0L,
+                totalCommissionEarnedToman = 200_000L
+            )
+            _referralRecords.update { listOf(newRecord) + it }
+
+            val curComm = _commissionStat.value
+            val bonusTx = ReferralTransaction(
+                id = "tx_${System.currentTimeMillis()}",
+                title = "پاداش معرفی مشاور جدید ($name — $agency)",
+                amount = 200_000L,
+                dateFa = JalaliDateHelper.formatJalaliDateOnly(System.currentTimeMillis()),
+                isDeposit = true,
+                status = CommissionStatus.PAID,
+                planName = "ثبت‌نام مشاور با کد معرف شما",
+                planPrice = 0L,
+                commissionPercent = 100,
+                agentName = name
+            )
+            _commissionStat.value = curComm.copy(
+                totalEarnings = curComm.totalEarnings + 200_000L,
+                availableBalance = curComm.availableBalance + 200_000L,
+                successfulReferralsCount = curComm.successfulReferralsCount + 1,
+                transactions = listOf(bonusTx) + curComm.transactions
+            )
+
+            addNotification(
+                title = "مشاور جدید با کد معرفی شما ثبت‌نام کرد!",
+                message = "مشاور املاک $name ($agency) با کد معرف شما ثبت‌نام نمود و مبلغ ۲۰۰,۰۰۰ تومان پاداش به حساب شما منظور گردید.",
+                type = NotificationType.COMMISSION_EARNED,
+                targetRole = UserRole.REGULAR_USER
+            )
+        }
+
+        return if (role == UserRole.REGULAR_USER) generatedCode else _agentReferralCode.value
     }
 
     // 2.3 & 7 — Admin Platform Ads Management

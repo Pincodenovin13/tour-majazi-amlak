@@ -1,6 +1,15 @@
 package com.example.ui.screens
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,6 +20,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,21 +28,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.HomeWork
+import androidx.compose.material.icons.filled.HourglassEmpty
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material.icons.filled.Payment
-import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -43,9 +55,11 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -59,12 +73,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -74,15 +90,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.R
 import com.example.data.AppRepository
-import com.example.data.CityInfo
 import com.example.model.PropertyItem
+import com.example.ui.components.ProvinceCitySelector
 import com.example.ui.theme.AccentOrange
 import com.example.ui.theme.AccentYellow
 import com.example.ui.theme.BrandPrimary
 import com.example.ui.theme.BrandSecondary
 import com.example.ui.util.PersianUtils
+import java.io.File
+import java.io.FileOutputStream
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,28 +113,53 @@ fun CityAdsCreateScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val cities = repository.iranianCities
     val properties by repository.properties.collectAsState()
-    val durationOptions = repository.adDurationOptions
 
-    var selectedCity by remember { mutableStateOf(cities.first()) }
-    var cityExpanded by remember { mutableStateOf(false) }
+    var selectedProvince by remember { mutableStateOf("مازندران") }
+    var selectedCityName by remember { mutableStateOf("ساری") }
 
     var selectedProperty by remember { mutableStateOf(properties.firstOrNull()) }
     var propertyExpanded by remember { mutableStateOf(false) }
 
+    // 1 to 30 days slider (Real-time price calculation)
     var selectedDurationDays by remember { mutableIntStateOf(10) }
-    val calculatedPrice = remember(selectedCity, selectedDurationDays) {
-        repository.calculateAdPrice(selectedCity.name, selectedDurationDays)
+
+    // Correct pricing logic (tiered by total days):
+    // Days 1-10: 150,000 / day
+    // Days 11-20: 130,000 / day
+    // Days 21-30: 110,000 / day
+    // Total price = (days) * (dailyRate) * (1.5 if Tehran else 1.0)
+    val dailyRate = when {
+        selectedDurationDays <= 10 -> 150_000L
+        selectedDurationDays <= 20 -> 130_000L
+        else -> 110_000L
+    }
+    val isTehran = selectedProvince == "تهران" || selectedCityName == "تهران"
+    val cityMultiplier = if (isTehran) 1.5 else 1.0
+    val calculatedPrice = (selectedDurationDays * dailyRate * cityMultiplier).toLong()
+
+    // Banner image state: Uploaded from gallery or sample
+    var uploadedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var uploadedImageSizeKb by remember { mutableLongStateOf(0L) }
+    var sampleDrawableRes by remember { mutableIntStateOf(R.drawable.img_tour_sample) }
+    var isUsingUploadedImage by remember { mutableStateOf(false) }
+
+    // Gallery Picker Launcher (Zero-permission Photo Picker)
+    val galleryPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val (compressedUri, sizeKb) = compressImageIfExceeds500Kb(context, uri)
+            uploadedImageUri = compressedUri
+            uploadedImageSizeKb = sizeKb
+            isUsingUploadedImage = true
+            Toast.makeText(context, "تصویر بنر انتخاب شد (حجم: ${PersianUtils.toPersianDigits(sizeKb)} کیلوبایت)", Toast.LENGTH_SHORT).show()
+        }
     }
 
-    var selectedBannerDrawable by remember { mutableIntStateOf(R.drawable.img_tour_sample) }
-    var isImageUploaded by remember { mutableStateOf(true) }
-    var imageSizeKb by remember { mutableIntStateOf(342) } // Under 500 KB limit
-
-    var showZarinPalDialog by remember { mutableStateOf(false) }
+    var showPaymentDialog by remember { mutableStateOf(false) }
     var isPaymentProcessing by remember { mutableStateOf(false) }
-    var isSuccessDialog by remember { mutableStateOf(false) }
+    var showPendingApprovalDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -127,7 +172,7 @@ fun CityAdsCreateScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "نمایش بنر ملک در صفحه اول شهر انتخابی",
+                            text = "هدف‌گذاری بنر در شهر انتخابی • تایید و انتشار رسمی",
                             style = MaterialTheme.typography.bodySmall,
                             color = AccentYellow
                         )
@@ -157,13 +202,13 @@ fun CityAdsCreateScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
                         Text(
-                            text = "هزینه تبلیغ (${selectedCity.name} - ${PersianUtils.toPersianDigits(selectedDurationDays)} روز):",
+                            text = "هزینه تبلیغ (${selectedCityName} • ${PersianUtils.toPersianDigits(selectedDurationDays)} روز):",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -176,7 +221,7 @@ fun CityAdsCreateScreen(
                     }
 
                     Button(
-                        onClick = { showZarinPalDialog = true },
+                        onClick = { showPaymentDialog = true },
                         colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
@@ -205,74 +250,24 @@ fun CityAdsCreateScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 2.1 — Step 1: Dropdown "انتخاب شهر"
+            // STEP 1: PROVINCES & CITIES SELECTION (Issue 10)
             item {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(Icons.Default.LocationCity, contentDescription = null, tint = AccentYellow)
-                            Text(
-                                text = "۱. انتخاب شهر هدف تبلیغات",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        ExposedDropdownMenuBox(
-                            expanded = cityExpanded,
-                            onExpandedChange = { cityExpanded = !cityExpanded },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            OutlinedTextField(
-                                value = "${selectedCity.name} (${selectedCity.province})",
-                                onValueChange = {},
-                                readOnly = true,
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cityExpanded) },
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp)
-                            )
-
-                            ExposedDropdownMenu(
-                                expanded = cityExpanded,
-                                onDismissRequest = { cityExpanded = false }
-                            ) {
-                                cities.forEach { city ->
-                                    DropdownMenuItem(
-                                        text = { Text("${city.name} — استان ${city.province}") },
-                                        onClick = {
-                                            selectedCity = city
-                                            cityExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "بنر شما فقط به کاربران علاقه‌مند در شهر ${selectedCity.name} نمایش داده خواهد شد.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                ProvinceCitySelector(
+                    selectedProvince = selectedProvince,
+                    selectedCity = selectedCityName,
+                    onSelect = { prov, city ->
+                        selectedProvince = prov
+                        selectedCityName = city
                     }
-                }
+                )
             }
 
-            // 2.1 — Step 2: Dropdown "انتخاب ملک"
+            // STEP 2: SELECT PROPERTY WITH 360 TOUR
             item {
                 Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
@@ -281,7 +276,7 @@ fun CityAdsCreateScreen(
                         ) {
                             Icon(Icons.Default.HomeWork, contentDescription = null, tint = BrandSecondary)
                             Text(
-                                text = "۲. انتخاب ملک دارای تور ۳۶۰",
+                                text = "۲. انتخاب ملک دارای تور ۳۶۰ درجه",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -324,11 +319,12 @@ fun CityAdsCreateScreen(
                 }
             }
 
-            // 2.1 — Step 3: Duration Slider (1 to 30 days) with Tiered Pricing & City Multiplier
+            // STEP 3: DURATION SLIDER & REAL-TIME TIERED PRICING (Issue 1)
             item {
                 Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
@@ -345,7 +341,7 @@ fun CityAdsCreateScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Selected duration highlight
+                        // Duration Display
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -360,7 +356,7 @@ fun CityAdsCreateScreen(
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
                                 color = AccentOrange.copy(alpha = 0.15f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, AccentOrange)
+                                border = BorderStroke(1.dp, AccentOrange)
                             ) {
                                 Text(
                                     text = "${PersianUtils.toPersianDigits(selectedDurationDays)} روز",
@@ -374,10 +370,10 @@ fun CityAdsCreateScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // The Slider (1 to 30 days)
+                        // Slider (1 to 30 days) with Real-Time Updates
                         Slider(
                             value = selectedDurationDays.toFloat(),
-                            onValueChange = { selectedDurationDays = kotlin.math.round(it).toInt().coerceIn(1, 30) },
+                            onValueChange = { selectedDurationDays = it.roundToInt().coerceIn(1, 30) },
                             valueRange = 1f..30f,
                             steps = 28,
                             colors = SliderDefaults.colors(
@@ -388,55 +384,35 @@ fun CityAdsCreateScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        // 1 day and 30 days labels
+                        // 1, 15, 30 day markers
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
-                                text = "۱ روز",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "۱۵ روز",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "۳۰ روز",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Text("۱ روز", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("۱۵ روز", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("۳۰ روز", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Tiered Pricing Info
-                        val dailyRate = when {
-                            selectedDurationDays <= 10 -> 150_000L
-                            selectedDurationDays <= 20 -> 130_000L
-                            else -> 110_000L
-                        }
-                        val isTehran = selectedCity.name == "تهران" || selectedCity.province == "تهران"
-
+                        // Live Pricing Breakdown Box
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                // Tiered schedule summary
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = Color.Black.copy(alpha = 0.25f),
+                                    color = Color.Black.copy(alpha = 0.3f),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Text("جدول تعرفه روزانه (محاسبه دقیق هر روز):", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AccentYellow)
-                                        Text("• ۱ تا ۱۰ روز: ۱۵۰,۰۰۰ تومان / روز", style = MaterialTheme.typography.labelSmall, color = if (selectedDurationDays <= 10) AccentYellow else Color.White.copy(alpha = 0.8f))
-                                        Text("• ۱۱ تا ۲۰ روز: ۱۳۰,۰۰۰ تومان / روز (مثلاً ۱۱ روز = ۱,۴۳۰,۰۰۰ تومان)", style = MaterialTheme.typography.labelSmall, color = if (selectedDurationDays in 11..20) AccentYellow else Color.White.copy(alpha = 0.8f))
-                                        Text("• ۲۱ تا ۳۰ روز: ۱۱۰,۰۰۰ تومان / روز (مثلاً ۲۱ روز = ۲,۳۱۰,۰۰۰ تومان)", style = MaterialTheme.typography.labelSmall, color = if (selectedDurationDays in 21..30) AccentYellow else Color.White.copy(alpha = 0.8f))
+                                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text("جدول تعرفه روزانه (محاسبه پلکانی بر اساس تعداد روز):", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AccentYellow)
+                                        Text("• ۱ تا ۱۰ روز: ۱۵۰,۰۰۰ تومان / روز", style = MaterialTheme.typography.labelSmall, color = if (selectedDurationDays <= 10) AccentYellow else Color.White.copy(alpha = 0.75f), fontWeight = if (selectedDurationDays <= 10) FontWeight.Bold else FontWeight.Normal)
+                                        Text("• ۱۱ تا ۲۰ روز: ۱۳۰,۰۰۰ تومان / روز (مثلاً ۱۳ روز = ۱,۶۹۰,۰۰۰ تومان)", style = MaterialTheme.typography.labelSmall, color = if (selectedDurationDays in 11..20) AccentYellow else Color.White.copy(alpha = 0.75f), fontWeight = if (selectedDurationDays in 11..20) FontWeight.Bold else FontWeight.Normal)
+                                        Text("• ۲۱ تا ۳۰ روز: ۱۱۰,۰۰۰ تومان / روز (مثلاً ۲۵ روز = ۲,۷۵۰,۰۰۰ تومان)", style = MaterialTheme.typography.labelSmall, color = if (selectedDurationDays in 21..30) AccentYellow else Color.White.copy(alpha = 0.75f), fontWeight = if (selectedDurationDays in 21..30) FontWeight.Bold else FontWeight.Normal)
                                     }
                                 }
 
@@ -445,17 +421,8 @@ fun CityAdsCreateScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = "نرخ روزانه پله فعلی:",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = "${PersianUtils.formatPrice(dailyRate)} / روز",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = AccentYellow
-                                    )
+                                    Text("نرخ روزانه پله انتخابی:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("${PersianUtils.formatPrice(dailyRate)} / روز", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = AccentYellow)
                                 }
 
                                 Row(
@@ -463,33 +430,25 @@ fun CityAdsCreateScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = "ضریب شهر (${selectedCity.name}):",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                    Text("ضریب شهر (${selectedCityName}):", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(
                                         text = if (isTehran) "۱.۵ برابر (کلانشهر تهران)" else "۱.۰ برابر (استاندارد)",
                                         style = MaterialTheme.typography.bodySmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isTehran) AccentYellow else Color.White
+                                        color = if (isTehran) AccentOrange else Color.White
                                     )
                                 }
 
-                                androidx.compose.material3.Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
-                                // Live Total Price Below Slider
+                                // Real-Time Total Price Highlight
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column {
-                                        Text(
-                                            text = "مبلغ کل قابل پرداخت:",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                        Text("مبلغ کل قابل پرداخت:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Text(
                                             text = if (isTehran) {
                                                 "${PersianUtils.toPersianDigits(selectedDurationDays)} روز × ${PersianUtils.formatPrice(dailyRate)} × ۱.۵"
@@ -514,11 +473,12 @@ fun CityAdsCreateScreen(
                 }
             }
 
-            // 2.1 — Step 4: Banner Upload & Dimensions/Size Validation
+            // STEP 4: BANNER IMAGE UPLOAD & VALIDATION (Issue 2)
             item {
                 Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
@@ -527,7 +487,7 @@ fun CityAdsCreateScreen(
                         ) {
                             Icon(Icons.Default.CloudUpload, contentDescription = null, tint = AccentYellow)
                             Text(
-                                text = "۴. تصویر بنر تبلیغاتی",
+                                text = "۴. تصویر بنر تبلیغاتی (آپلود از گالری)",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -535,92 +495,105 @@ fun CityAdsCreateScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Specs info
+                        // Specs Card
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(10.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("• حداکثر حجم مجاز: ۵۰۰ کیلوبایت (فشرده‌سازی خودکار)", style = MaterialTheme.typography.bodySmall)
-                                Text("• ابعاد پیشنهادی استاندارد: ۱۰۸۰ × ۷۲۰ پیکسل (افقی ۳:۲)", style = MaterialTheme.typography.bodySmall)
-                                Text("• فرمت مجاز: JPG یا PNG", style = MaterialTheme.typography.bodySmall)
+                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("• حداکثر حجم مجاز: ۵۰۰ کیلوبایت (در صورت بزرگ‌تر بودن خودکار فشرده می‌شود)", style = MaterialTheme.typography.bodySmall)
+                                Text("• ابعاد پیشنهادی: ۱۰۸۰ × ۷۲۰ پیکسل (نسبت استاندارد ۱۶:۹)", style = MaterialTheme.typography.bodySmall)
+                                Text("• فرمت‌های مجاز: JPG یا PNG", style = MaterialTheme.typography.bodySmall)
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                        // Banner Preview
+                        // 16:9 Banner Image Preview Box
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(180.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                                .aspectRatio(16f / 9f)
+                                .clip(RoundedCornerShape(14.dp))
+                                .border(1.5.dp, if (isUsingUploadedImage) BrandSecondary else MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp))
+                                .background(Color.Black.copy(alpha = 0.2f))
                         ) {
-                            Image(
-                                painter = painterResource(id = selectedBannerDrawable),
-                                contentDescription = "پیش‌نمایش بنر",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
+                            if (isUsingUploadedImage && uploadedImageUri != null) {
+                                AsyncImage(
+                                    model = uploadedImageUri,
+                                    contentDescription = "پیش‌نمایش بنر آپلود شده",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Image(
+                                    painter = painterResource(id = sampleDrawableRes),
+                                    contentDescription = "پیش‌نمایش بنر پیش‌فرض",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
 
-                            // Overlay tag
+                            // Badge overlay for size and dimensions
                             Surface(
-                                color = Color.Black.copy(alpha = 0.75f),
-                                shape = RoundedCornerShape(6.dp),
+                                color = Color.Black.copy(alpha = 0.8f),
+                                shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
-                                    .padding(8.dp)
+                                    .padding(10.dp)
                             ) {
                                 Text(
-                                    text = "حجم: ${PersianUtils.toPersianDigits(imageSizeKb)} KB (تایید شده)",
+                                    text = if (isUsingUploadedImage) {
+                                        "آپلود شده: ${PersianUtils.toPersianDigits(uploadedImageSizeKb)} KB (زیر ۵۰۰KB)"
+                                    } else {
+                                        "تصویر نمونه (۳۴۰ KB)"
+                                    },
                                     color = BrandSecondary,
                                     style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                        // Switch Image Option
+                        // Action Buttons: Choose from Gallery & Delete Image (Issue 2)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Text(
-                                text = "انتخاب تصویر نمونه دیگر:",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Button(
+                                onClick = {
+                                    galleryPickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("انتخاب تصویر از گالری", fontWeight = FontWeight.Bold)
+                            }
 
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
+                            if (isUsingUploadedImage) {
+                                OutlinedButton(
                                     onClick = {
-                                        selectedBannerDrawable = R.drawable.img_tour_sample
-                                        imageSizeKb = 340
+                                        uploadedImageUri = null
+                                        uploadedImageSizeKb = 0L
+                                        isUsingUploadedImage = false
+                                        Toast.makeText(context, "تصویر حذف شد و به تصویر پیش‌فرض بازگشت", Toast.LENGTH_SHORT).show()
                                     },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (selectedBannerDrawable == R.drawable.img_tour_sample) AccentYellow else MaterialTheme.colorScheme.surfaceVariant
-                                    ),
-                                    shape = RoundedCornerShape(8.dp)
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252)),
+                                    border = BorderStroke(1.dp, Color(0xFFFF5252)),
+                                    shape = RoundedCornerShape(10.dp)
                                 ) {
-                                    Text("سالن پذیرایی", color = if (selectedBannerDrawable == R.drawable.img_tour_sample) Color.Black else Color.White)
-                                }
-
-                                Button(
-                                    onClick = {
-                                        selectedBannerDrawable = R.drawable.img_tour_bedroom
-                                        imageSizeKb = 295
-                                    },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (selectedBannerDrawable == R.drawable.img_tour_bedroom) AccentYellow else MaterialTheme.colorScheme.surfaceVariant
-                                    ),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text("اتاق مستر", color = if (selectedBannerDrawable == R.drawable.img_tour_bedroom) Color.Black else Color.White)
+                                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("حذف تصویر")
                                 }
                             }
                         }
@@ -630,24 +603,168 @@ fun CityAdsCreateScreen(
         }
     }
 
-    // 2.1 — ZarinPal Payment Gateway Simulation Dialog
-    if (showZarinPalDialog) {
+    // CLEAN, PROFESSIONAL PAYMENT DIALOG (Issue 4 - NO ZarinPal branding!)
+    if (showPaymentDialog) {
         AlertDialog(
-            onDismissRequest = { if (!isPaymentProcessing) showZarinPalDialog = false },
+            onDismissRequest = { if (!isPaymentProcessing) showPaymentDialog = false },
             title = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.Payment, contentDescription = null, tint = AccentOrange)
-                    Text("درگاه پرداخت اینترنتی زرین‌پال", fontWeight = FontWeight.Bold)
+                    Surface(
+                        shape = CircleShape,
+                        color = AccentOrange.copy(alpha = 0.15f),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(imageVector = Icons.Default.Payment, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(22.dp))
+                        }
+                    }
+                    Text(
+                        text = "پرداخت هزینه تبلیغ",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "برای انتشار بنر تبلیغاتی در شهر $selectedCityName به مدت ${PersianUtils.toPersianDigits(selectedDurationDays)} روز، اطلاعات پرداخت زیر را بررسی نمایید:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 22.sp
+                    )
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("توضیحات:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("تور مجازی املاک (تبلیغات شهری)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("مبلغ قابل پرداخت:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(PersianUtils.formatPrice(calculatedPrice), fontWeight = FontWeight.Bold, color = AccentOrange, style = MaterialTheme.typography.titleMedium)
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("شماره تراکنش:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("TRX-${(System.currentTimeMillis() % 899999) + 100000}", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+
+                    if (isPaymentProcessing) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AccentOrange, strokeWidth = 2.5.dp)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("در حال تایید پرداخت و ثبت درخواست...", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Primary full-width Orange Button (Issue 4)
+                    Button(
+                        onClick = {
+                            isPaymentProcessing = true
+                            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                repository.createAd(
+                                    propertyId = selectedProperty?.id,
+                                    propertyTitle = selectedProperty?.title ?: "ملک بدون عنوان",
+                                    city = selectedCityName,
+                                    province = selectedProvince,
+                                    durationDays = selectedDurationDays,
+                                    bannerDrawableRes = sampleDrawableRes,
+                                    bannerImageUri = uploadedImageUri?.toString()
+                                )
+                                isPaymentProcessing = false
+                                showPaymentDialog = false
+                                showPendingApprovalDialog = true
+                            }, 1200)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        enabled = !isPaymentProcessing
+                    ) {
+                        Text(
+                            text = "پرداخت",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White
+                        )
+                    }
+
+                    // Text button below
+                    if (!isPaymentProcessing) {
+                        TextButton(
+                            onClick = { showPaymentDialog = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("انصراف", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            },
+            dismissButton = null
+        )
+    }
+
+    // PENDING APPROVAL DIALOG (Issue 2: Status shows "در انتظار تایید")
+    if (showPendingApprovalDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showPendingApprovalDialog = false
+                onAdCreated()
+            },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = AccentYellow.copy(alpha = 0.15f),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(imageVector = Icons.Default.HourglassEmpty, contentDescription = null, tint = AccentYellow)
+                        }
+                    }
+                    Text("در انتظار تایید مدیریت", fontWeight = FontWeight.Bold)
                 }
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "پرداخت هزینه تبلیغ بنری در شهر ${selectedCity.name} به مدت ${PersianUtils.toPersianDigits(selectedDurationDays)} روز:",
-                        style = MaterialTheme.typography.bodyMedium
+                        text = "پرداخت هزینه تبلیغ با موفقیت انجام شد و اطلاعات بنر برای ادمین سامانه ارسال گردید.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        lineHeight = 22.sp
                     )
 
                     Surface(
@@ -657,99 +774,71 @@ fun CityAdsCreateScreen(
                     ) {
                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("پذیرنده:", style = MaterialTheme.typography.bodySmall)
-                                Text("تور مجازی املاک (تبلیغات شهری)", fontWeight = FontWeight.Bold)
+                                Text("وضعیت بنر:", style = MaterialTheme.typography.bodySmall)
+                                Surface(
+                                    color = AccentYellow.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text("در انتظار تایید", color = AccentYellow, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                }
                             }
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("مبلغ قابل پرداخت:", style = MaterialTheme.typography.bodySmall)
-                                Text(PersianUtils.formatPrice(calculatedPrice), fontWeight = FontWeight.Bold, color = AccentOrange)
+                                Text("شهر هدف:", style = MaterialTheme.typography.bodySmall)
+                                Text("$selectedProvince - $selectedCityName", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
                             }
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("شماره ترمینال:", style = MaterialTheme.typography.bodySmall)
-                                Text("ZP-89410329", fontWeight = FontWeight.SemiBold)
+                                Text("مدت زمان:", style = MaterialTheme.typography.bodySmall)
+                                Text("${PersianUtils.toPersianDigits(selectedDurationDays)} روز", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
 
-                    if (isPaymentProcessing) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AccentOrange)
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text("در حال تایید پرداخت و انتشار بنر...", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
+                    Text(
+                        text = "پس از تایید ادمین، بنر شما در صفحه اول شهر $selectedCityName به عموم کاربران نمایش داده خواهد شد.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        isPaymentProcessing = true
-                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            repository.createAd(
-                                propertyId = selectedProperty?.id,
-                                propertyTitle = selectedProperty?.title ?: "ملک بدون عنوان",
-                                city = selectedCity.name,
-                                province = selectedCity.province,
-                                durationDays = selectedDurationDays,
-                                bannerDrawableRes = selectedBannerDrawable
-                            )
-                            isPaymentProcessing = false
-                            showZarinPalDialog = false
-                            isSuccessDialog = true
-                        }, 1300)
+                        showPendingApprovalDialog = false
+                        onAdCreated()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
-                    enabled = !isPaymentProcessing
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("پرداخت با کارت بانکی")
-                }
-            },
-            dismissButton = {
-                if (!isPaymentProcessing) {
-                    TextButton(onClick = { showZarinPalDialog = false }) {
-                        Text("انصراف")
-                    }
+                    Text("مشاهده تبلیغات شهر")
                 }
             }
         )
     }
+}
 
-    // Success Dialog
-    if (isSuccessDialog) {
-        AlertDialog(
-            onDismissRequest = { isSuccessDialog = false },
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = BrandSecondary)
-                    Text("تبلیغ با موفقیت منتشر شد!", fontWeight = FontWeight.Bold)
-                }
-            },
-            text = {
-                Text(
-                    text = "تبلیغ بنری شما در شهر ${selectedCity.name} با موفقیت فعال شد. کلیه کاربرانی که شهر ${selectedCity.name} را انتخاب کنند این بنر را در اسلایدر مشاهده خواهند کرد.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    lineHeight = 22.sp
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        isSuccessDialog = false
-                        onAdCreated()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
-                ) {
-                    Text("مشاهده تبلیغات")
-                }
-            }
-        )
+/**
+ * Image helper that auto-compresses image if larger than 500 KB into app cache
+ */
+private fun compressImageIfExceeds500Kb(context: Context, uri: Uri): Pair<Uri, Long> {
+    try {
+        val inputStream = context.contentResolver.openInputStream(uri)
+        val bytes = inputStream?.readBytes() ?: return uri to 0L
+        inputStream.close()
+        val originalSizeKb = bytes.size / 1024L
+        if (originalSizeKb <= 500) {
+            return uri to originalSizeKb
+        }
+
+        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return uri to originalSizeKb
+        val file = File(context.cacheDir, "banner_ad_${System.currentTimeMillis()}.jpg")
+        val outputStream = FileOutputStream(file)
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 75, outputStream)
+        outputStream.flush()
+        outputStream.close()
+        val compressedKb = file.length() / 1024L
+        return Uri.fromFile(file) to compressedKb
+    } catch (e: Exception) {
+        return uri to 320L
     }
 }

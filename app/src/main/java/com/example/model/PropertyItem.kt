@@ -24,5 +24,7 @@ data class PropertyItem(
     val inquiriesCount: Int = 0,
     val status: PropertyStatus = PropertyStatus.ACTIVE_TOUR,
     val isFeatured: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val agentName: String = "مهندس امانی",
+    val primaryImageRes: Int = com.example.R.drawable.img_tour_sample
 )

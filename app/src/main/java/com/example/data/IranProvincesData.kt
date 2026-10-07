@@ -181,7 +181,7 @@ object IranProvincesData {
             id = "ilam",
             name = "ایلام",
             center = "ایلام",
-            cities = listOf("ایلام", "دهلران", "ایوان", "آبدانان", "دره‌شهر", "مهران", "سرابله", "ملکشاهی", "چردgroups")
+            cities = listOf("ایلام", "دهلران", "ایوان", "آبدانان", "دره‌شهر", "مهران", "سرابله", "ملکشاهی", "چرداول")
         ),
         Province(
             id = "khorasan_north",
