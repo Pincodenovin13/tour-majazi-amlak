@@ -33,6 +33,11 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.SwitchAccount
 import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Apartment
+import com.example.ui.components.AgentAvatarPickerDialog
+import com.example.ui.components.AgentAvatarView
+import com.example.ui.components.AgentCoverPickerDialog
 import com.example.ui.theme.AccentOrange
 import com.example.ui.theme.AccentYellow
 import androidx.compose.material3.AlertDialog
@@ -97,6 +102,8 @@ fun ProfileScreen(
     var editNameInput by remember { mutableStateOf(userName) }
     var editAgencyInput by remember { mutableStateOf(agencyName) }
     var showCameraGuideDialog by remember { mutableStateOf(false) }
+    var showAvatarDialog by remember { mutableStateOf(false) }
+    var showCoverDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -145,20 +152,13 @@ fun ProfileScreen(
                         modifier = Modifier.padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = BrandPrimary,
-                            modifier = Modifier.size(76.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(44.dp)
-                                )
-                            }
-                        }
+                        // Profile Face Avatar (supports gallery & fantasy presets)
+                        AgentAvatarView(
+                            repository = repository,
+                            sizeDp = 84,
+                            borderWidthDp = 3f,
+                            onClick = { showAvatarDialog = true }
+                        )
 
                         Spacer(modifier = Modifier.height(12.dp))
 
@@ -182,18 +182,49 @@ fun ProfileScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        Button(
-                            onClick = {
-                                editNameInput = userName
-                                editAgencyInput = agencyName
-                                showEditDialog = true
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary.copy(alpha = 0.1f)),
-                            shape = RoundedCornerShape(10.dp)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(imageVector = Icons.Default.Edit, contentDescription = null, tint = BrandPrimary, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("ویرایش اطلاعات حساب", color = BrandPrimary, fontWeight = FontWeight.Bold)
+                            Button(
+                                onClick = {
+                                    editNameInput = userName
+                                    editAgencyInput = agencyName
+                                    showEditDialog = true
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary.copy(alpha = 0.15f)),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(imageVector = Icons.Default.Edit, contentDescription = null, tint = BrandPrimary, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("ویرایش نام", color = BrandPrimary, fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = { showAvatarDialog = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(imageVector = Icons.Default.Face, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("تغییر چهره", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        if (currentRole == UserRole.AGENT) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = { showCoverDialog = true },
+                                border = BorderStroke(1.dp, AccentYellow.copy(alpha = 0.6f)),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(imageVector = Icons.Default.Apartment, contentDescription = null, tint = AccentYellow, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("تغییر لوگو و طرح لابی/ملک آژانس", color = AccentYellow, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
@@ -375,6 +406,20 @@ fun ProfileScreen(
                     Text("متوجه شدم")
                 }
             }
+        )
+    }
+
+    if (showAvatarDialog) {
+        AgentAvatarPickerDialog(
+            repository = repository,
+            onDismiss = { showAvatarDialog = false }
+        )
+    }
+
+    if (showCoverDialog) {
+        AgentCoverPickerDialog(
+            repository = repository,
+            onDismiss = { showCoverDialog = false }
         )
     }
 }

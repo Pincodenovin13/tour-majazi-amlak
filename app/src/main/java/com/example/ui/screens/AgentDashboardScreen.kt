@@ -87,6 +87,10 @@ import com.example.data.AppRepository
 import com.example.model.PropertyItem
 import com.example.model.PropertyStatus
 import com.example.model.SubscriptionPlan
+import com.example.ui.components.AgentAvatarPickerDialog
+import com.example.ui.components.AgentAvatarView
+import com.example.ui.components.AgentCoverPickerDialog
+import com.example.ui.components.AgentCoverView
 import com.example.ui.theme.AccentOrange
 import com.example.ui.theme.AccentYellow
 import com.example.ui.theme.BrandPrimary
@@ -164,14 +168,11 @@ fun AgentDashboardScreen(
                     .fillMaxWidth()
                     .height(240.dp)
             ) {
-                // Agency Cover Image
-                Image(
-                    painter = painterResource(id = agentCoverRes),
-                    contentDescription = "سردر دفتر املاک",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clickable { showCoverChangeDialog = true }
+                // Agency Cover Image (Gallery & Luxury Presets: Lobby, Towers, Villas, Logos)
+                AgentCoverView(
+                    repository = repository,
+                    modifier = Modifier.fillMaxSize(),
+                    onClick = { showCoverChangeDialog = true }
                 )
 
                 // Dark Gradient for legibility
@@ -201,7 +202,7 @@ fun AgentDashboardScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null, tint = AccentYellow, modifier = Modifier.size(14.dp))
-                        Text("تغییر عکس سردر املاک", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Text("تغییر طرح سردر و لابی", color = Color.White, style = MaterialTheme.typography.labelSmall)
                     }
                 }
 
@@ -214,17 +215,12 @@ fun AgentDashboardScreen(
                     verticalAlignment = Alignment.Bottom,
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // Profile Face Avatar
+                    // Profile Face Avatar (Gallery & Fantasy Men & Women Presets)
                     Box(modifier = Modifier.size(72.dp)) {
-                        Image(
-                            painter = painterResource(id = agentAvatarRes),
-                            contentDescription = "عکس چهره مشاور",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(72.dp)
-                                .clip(CircleShape)
-                                .border(2.5.dp, AccentYellow, CircleShape)
-                                .clickable { showAvatarChangeDialog = true }
+                        AgentAvatarView(
+                            repository = repository,
+                            sizeDp = 72,
+                            onClick = { showAvatarChangeDialog = true }
                         )
 
                         // Camera overlay badge
@@ -972,91 +968,19 @@ fun AgentDashboardScreen(
         }
     }
 
-    // Modal: Change Agency Cover Photo
+    // Modal: Change Agency Cover / Logo / Lobby Designs (Issue: user gallery + luxury property/lobby presets)
     if (showCoverChangeDialog) {
-        AlertDialog(
-            onDismissRequest = { showCoverChangeDialog = false },
-            title = { Text("انتخاب عکس سردر و دفتر املاک") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("یکی از تصاویر نمونه دفتر املاک را برای قاب بالای داشبورد خود انتخاب کنید:")
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        listOf(
-                            R.drawable.img_tour_sample to "نمای سالن ۱",
-                            R.drawable.img_tour_bedroom to "نمای اتاق",
-                            R.drawable.ic_app_logo to "لوگوی اختصاصی"
-                        ).forEach { (res, label) ->
-                            Card(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        repository.updateAgentCover(res)
-                                        showCoverChangeDialog = false
-                                        Toast.makeText(context, "عکس سردر املاک به‌روزرسانی شد", Toast.LENGTH_SHORT).show()
-                                    }
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(6.dp)) {
-                                    Image(painter = painterResource(id = res), contentDescription = null, modifier = Modifier.size(50.dp), contentScale = ContentScale.Crop)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(label, style = MaterialTheme.typography.labelSmall)
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showCoverChangeDialog = false }) { Text("بستن") }
-            }
+        AgentCoverPickerDialog(
+            repository = repository,
+            onDismiss = { showCoverChangeDialog = false }
         )
     }
 
-    // Modal: Change Agent Avatar Photo
+    // Modal: Change Agent Face Avatar (Issue: user gallery + fantasy men & women presets)
     if (showAvatarChangeDialog) {
-        AlertDialog(
-            onDismissRequest = { showAvatarChangeDialog = false },
-            title = { Text("انتخاب عکس چهره مشاور املاک") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("عکس پرسنلی یا نمایه خود را انتخاب فرمایید:")
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        listOf(
-                            R.drawable.img_tour_bedroom to "عکس رسمی ۱",
-                            R.drawable.img_tour_sample to "عکس رسمی ۲",
-                            R.drawable.ic_app_logo to "آیکون هویت"
-                        ).forEach { (res, label) ->
-                            Card(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        repository.updateAgentAvatar(res)
-                                        showAvatarChangeDialog = false
-                                        Toast.makeText(context, "عکس چهره با موفقیت تغییر یافت", Toast.LENGTH_SHORT).show()
-                                    }
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(6.dp)) {
-                                    Image(painter = painterResource(id = res), contentDescription = null, modifier = Modifier.size(50.dp), contentScale = ContentScale.Crop)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(label, style = MaterialTheme.typography.labelSmall)
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showAvatarChangeDialog = false }) { Text("بستن") }
-            }
+        AgentAvatarPickerDialog(
+            repository = repository,
+            onDismiss = { showAvatarChangeDialog = false }
         )
     }
 

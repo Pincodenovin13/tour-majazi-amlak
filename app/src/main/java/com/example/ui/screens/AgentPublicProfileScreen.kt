@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.AppRepository
 import com.example.model.PropertyItem
+import com.example.ui.components.AgentAvatarView
 import com.example.ui.theme.AccentOrange
 import com.example.ui.theme.AccentYellow
 import com.example.ui.theme.BrandGold
@@ -143,21 +144,11 @@ fun AgentPublicProfileScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = BrandPrimary.copy(alpha = 0.2f),
-                                border = androidx.compose.foundation.BorderStroke(2.dp, AccentYellow),
-                                modifier = Modifier.size(72.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Image(
-                                        painter = painterResource(id = R.drawable.img_tour_bedroom),
-                                        contentDescription = agentName,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
-                            }
+                            AgentAvatarView(
+                                repository = repository,
+                                sizeDp = 72,
+                                borderWidthDp = 2.5f
+                            )
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Row(

@@ -96,6 +96,18 @@ class AppRepository {
     private val _agentAvatarRes = MutableStateFlow(R.drawable.img_tour_bedroom)
     val agentAvatarRes: StateFlow<Int> = _agentAvatarRes.asStateFlow()
 
+    private val _agentAvatarUri = MutableStateFlow<String?>(null)
+    val agentAvatarUri: StateFlow<String?> = _agentAvatarUri.asStateFlow()
+
+    private val _agentAvatarPresetId = MutableStateFlow<String?>("male_formal")
+    val agentAvatarPresetId: StateFlow<String?> = _agentAvatarPresetId.asStateFlow()
+
+    private val _agentCoverUri = MutableStateFlow<String?>(null)
+    val agentCoverUri: StateFlow<String?> = _agentCoverUri.asStateFlow()
+
+    private val _agentCoverPresetId = MutableStateFlow<String?>("lobby_marble")
+    val agentCoverPresetId: StateFlow<String?> = _agentCoverPresetId.asStateFlow()
+
     // Agent Online / Offline live status
     private val _isAgentOnline = MutableStateFlow(true)
     val isAgentOnline: StateFlow<Boolean> = _isAgentOnline.asStateFlow()
@@ -394,6 +406,26 @@ class AppRepository {
 
     fun updateAgentAvatar(resId: Int) {
         _agentAvatarRes.value = resId
+    }
+
+    fun setAgentAvatarUri(uri: String?) {
+        _agentAvatarUri.value = uri
+        if (uri != null) _agentAvatarPresetId.value = null
+    }
+
+    fun setAgentAvatarPreset(presetId: String) {
+        _agentAvatarPresetId.value = presetId
+        _agentAvatarUri.value = null
+    }
+
+    fun setAgentCoverUri(uri: String?) {
+        _agentCoverUri.value = uri
+        if (uri != null) _agentCoverPresetId.value = null
+    }
+
+    fun setAgentCoverPreset(presetId: String) {
+        _agentCoverPresetId.value = presetId
+        _agentCoverUri.value = null
     }
 
     fun toggleAgentOnline() {
