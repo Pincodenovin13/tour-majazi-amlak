@@ -24,8 +24,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.BusinessCenter
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ConfirmationNumber
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material.icons.filled.LocationOn
@@ -85,6 +87,9 @@ import kotlinx.coroutines.delay
 fun LoginScreen(
     role: UserRole,
     repository: AppRepository,
+    initialReferralCode: String = "",
+    initialReferrerName: String = "",
+    isReferralLocked: Boolean = false,
     onLoginSuccess: (mobile: String, role: UserRole) -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -97,7 +102,7 @@ fun LoginScreen(
     var phoneNumber by remember { mutableStateOf("09123456789") }
     var selectedProvince by remember { mutableStateOf("مازندران") }
     var selectedCity by remember { mutableStateOf("ساری") }
-    var referralCodeInput by remember { mutableStateOf("") }
+    var referralCodeInput by remember(initialReferralCode) { mutableStateOf(initialReferralCode) }
 
     // Agent-specific fields (Issue 7)
     var agencyName by remember { mutableStateOf("") }
@@ -326,23 +331,74 @@ fun LoginScreen(
                             )
                         }
 
-                        // Referral Code (Optional for both roles, critical logic for system)
+                        // Locked Referral Banner (Issues 4 & 8)
+                        if (isReferralLocked && referralCodeInput.isNotBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = BrandSecondary.copy(alpha = 0.15f),
+                                border = BorderStroke(1.dp, BrandSecondary),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CardGiftcard,
+                                        contentDescription = null,
+                                        tint = AccentYellow,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Column {
+                                        Text(
+                                            text = "🎁 شما توسط ${if (initialReferrerName.isNotBlank()) initialReferrerName else "معرف رسمی"} دعوت شده‌اید و پس از ثبت‌نام، ۲۰٪ تخفیف ویژه دریافت می‌کنید",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            lineHeight = 20.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "کد معرف قفل شده و قابل تغییر نمی‌باشد.",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = AccentYellow
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Referral Code (Locked if via link, editable otherwise)
                         OutlinedTextField(
                             value = referralCodeInput,
-                            onValueChange = { referralCodeInput = it.uppercase() },
-                            label = { Text("کد معرفی (اختیاری)") },
+                            onValueChange = {
+                                if (!isReferralLocked) referralCodeInput = it.uppercase()
+                            },
+                            enabled = !isReferralLocked,
+                            label = { Text(if (isReferralLocked) "کد معرف (قفل شده)" else "کد معرفی (اختیاری)") },
                             placeholder = { Text("مثلاً VR-98421") },
-                            leadingIcon = { Icon(Icons.Default.ConfirmationNumber, contentDescription = null, tint = AccentOrange) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (isReferralLocked) Icons.Default.Lock else Icons.Default.ConfirmationNumber,
+                                    contentDescription = null,
+                                    tint = if (isReferralLocked) Color.Gray else AccentOrange
+                                )
+                            },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth().testTag("reg_referral_code_input"),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("reg_referral_code_input"),
                             shape = RoundedCornerShape(12.dp),
                             supportingText = {
                                 Text(
-                                    text = if (role == UserRole.AGENT)
-                                        "در صورت داشتن کد معرف، با وارد کردن آن پاداش نقدی به معرف شما تعلق می‌گیرد."
-                                    else
-                                        "کد کاربری که شما را دعوت کرده است وارد نمایید (یا خالی بگذارید).",
-                                    style = MaterialTheme.typography.labelSmall
+                                    text = when {
+                                        isReferralLocked -> "شما توسط ${if (initialReferrerName.isNotBlank()) initialReferrerName else "معرف شما"} دعوت شده‌اید."
+                                        role == UserRole.AGENT -> "اگر کد معرفی دارید، وارد کنید (پاداش نقدی به معرف تعلق می‌گیرد)."
+                                        else -> "اگر کد معرفی دارید، وارد کنید (یا خالی بگذارید)."
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isReferralLocked) AccentYellow else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         )

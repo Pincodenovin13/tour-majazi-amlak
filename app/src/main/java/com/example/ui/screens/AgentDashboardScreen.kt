@@ -33,11 +33,14 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.MonetizationOn
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PowerSettingsNew
@@ -79,6 +82,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -86,11 +90,13 @@ import com.example.R
 import com.example.data.AppRepository
 import com.example.model.PropertyItem
 import com.example.model.PropertyStatus
+import com.example.model.ReferralRecord
 import com.example.model.SubscriptionPlan
 import com.example.ui.components.AgentAvatarPickerDialog
 import com.example.ui.components.AgentAvatarView
 import com.example.ui.components.AgentCoverPickerDialog
 import com.example.ui.components.AgentCoverView
+import com.example.ui.components.ReferralShareBottomSheet
 import com.example.ui.theme.AccentOrange
 import com.example.ui.theme.AccentYellow
 import com.example.ui.theme.BrandPrimary
@@ -145,8 +151,14 @@ fun AgentDashboardScreen(
     val pendingAdsCount = myAds.count { it.status == com.example.model.AdStatus.PENDING }
 
     // Modals
+    val notifications by repository.notifications.collectAsState()
+    val unreadNotificationsCount = notifications.count { !it.isRead }
+    val referralRecords by repository.referralRecords.collectAsState()
+
     var showCoverChangeDialog by remember { mutableStateOf(false) }
     var showAvatarChangeDialog by remember { mutableStateOf(false) }
+    var showReferralShareSheet by remember { mutableStateOf(false) }
+    var notificationFilterUnreadOnly by remember { mutableStateOf(false) }
     var propertyToDelete by remember { mutableStateOf<PropertyItem?>(null) }
     var showWithdrawModal by remember { mutableStateOf(false) }
     var withdrawAmountInput by remember { mutableStateOf(commissionStat.availableBalance.coerceAtLeast(500_000L).toString()) }
@@ -186,23 +198,48 @@ fun AgentDashboardScreen(
                         )
                 )
 
-                // Button to change Cover Photo
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color.Black.copy(alpha = 0.7f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                // Action buttons on top-end: Notifications & Change Cover
+                Row(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(14.dp)
-                        .clickable { showCoverChangeDialog = true }
+                        .padding(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    // Notification Bell Button
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.7f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clickable { onNotificationsClick() }
                     ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = null, tint = AccentYellow, modifier = Modifier.size(14.dp))
-                        Text("تغییر طرح سردر و لابی", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (unreadNotificationsCount > 0) Icons.Default.NotificationsActive else Icons.Default.Notifications,
+                                contentDescription = "اعلان‌ها",
+                                tint = if (unreadNotificationsCount > 0) AccentOrange else Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    // Button to change Cover Photo
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.Black.copy(alpha = 0.7f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                        modifier = Modifier.clickable { showCoverChangeDialog = true }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(Icons.Default.CameraAlt, contentDescription = null, tint = AccentYellow, modifier = Modifier.size(14.dp))
+                            Text("تغییر طرح سردر و لابی", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        }
                     }
                 }
 
@@ -753,18 +790,68 @@ fun AgentDashboardScreen(
                                 Text(agentReferralCode, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = AccentYellow)
                             }
 
-                            Button(
-                                onClick = {
-                                    clipboardManager.setText(AnnotatedString(agentReferralCode))
-                                    Toast.makeText(context, "کد معرف کپی شد", Toast.LENGTH_SHORT).show()
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = AccentYellow),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.height(36.dp)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("کپی کد", color = Color.Black, style = MaterialTheme.typography.labelSmall)
+                                Button(
+                                    onClick = {
+                                        clipboardManager.setText(AnnotatedString(agentReferralCode))
+                                        Toast.makeText(context, "کد معرف کپی شد", Toast.LENGTH_SHORT).show()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = AccentYellow),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("کپی کد", color = Color.Black, style = MaterialTheme.typography.labelSmall)
+                                }
+
+                                Button(
+                                    onClick = { showReferralShareSheet = true },
+                                    colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    Icon(Icons.Default.Share, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("اشتراک لینک", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Direct Deep Link Preview Box
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color.Black.copy(alpha = 0.35f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("لینک دعوت مستقیم شما:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("https://tour-majazi.ir/ref/$agentReferralCode", style = MaterialTheme.typography.bodySmall, color = AccentYellow, fontWeight = FontWeight.Bold)
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    val link = "https://tour-majazi.ir/ref/$agentReferralCode"
+                                    clipboardManager.setText(AnnotatedString(link))
+                                    Toast.makeText(context, "لینک دعوت کپی شد", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = "کپی لینک", tint = Color.White, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -836,6 +923,274 @@ fun AgentDashboardScreen(
                             Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("تسویه کامل (واریز ۲۴ ساعته)", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4.1. SECTION: معرفی‌شدگان من (My Referrals List - Issue 3, 6, 7)
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, BrandSecondary.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Group, contentDescription = null, tint = BrandSecondary)
+                            Text(
+                                text = "معرفی‌شدگان من",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = BrandSecondary.copy(alpha = 0.2f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BrandSecondary)
+                        ) {
+                            Text(
+                                text = "${PersianUtils.toPersianDigits(referralRecords.size)} مشاور",
+                                color = BrandSecondary,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "لیست مشاورینی که با کد معرفی شما ثبت‌نام نموده‌اند و وضعیت اشتراک و پورسانت هر یک:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (referralRecords.isEmpty()) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "هنوز مشاوری با کد شما ثبت‌نام نکرده است. با اشتراک لینک دعوت، اولین پورسانت خود را دریافت کنید!",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(14.dp),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            referralRecords.forEach { record ->
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                Icon(Icons.Default.Person, contentDescription = null, tint = AccentYellow, modifier = Modifier.size(18.dp))
+                                                Text(
+                                                    text = record.referredAgentName,
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White
+                                                )
+                                            }
+
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = when (record.status) {
+                                                    com.example.model.ReferralStatus.ACTIVE -> BrandSecondary.copy(alpha = 0.2f)
+                                                    com.example.model.ReferralStatus.TRIAL -> AccentYellow.copy(alpha = 0.2f)
+                                                    com.example.model.ReferralStatus.EXPIRED -> Color.Red.copy(alpha = 0.2f)
+                                                }
+                                            ) {
+                                                Text(
+                                                    text = record.status.titleFa,
+                                                    color = when (record.status) {
+                                                        com.example.model.ReferralStatus.ACTIVE -> BrandSecondary
+                                                        com.example.model.ReferralStatus.TRIAL -> AccentYellow
+                                                        com.example.model.ReferralStatus.EXPIRED -> Color.Red
+                                                    },
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = "شهر: ${record.referredCity} • تاریخ ثبت: ${record.registeredDateJalali}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                text = record.planChosen.titleFa,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = AccentOrange,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Divider(color = Color.White.copy(alpha = 0.08f))
+                                        Spacer(modifier = Modifier.height(6.dp))
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "نرخ پورسانت: ${record.planChosen.commissionPercent}٪",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                text = "مجموع درآمد از این مشاور: ${PersianUtils.formatPrice(record.totalCommissionEarnedToman)}",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = AccentYellow
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4.2. SECTION: اطلاعیه‌ها (Dashboard Notifications with Read/Unread Filter - Issue 7)
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AccentOrange.copy(alpha = 0.4f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Notifications, contentDescription = null, tint = AccentOrange)
+                            Text(
+                                text = "اطلاعیه‌ها و پیام‌های سیستم",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+
+                        // Filter unread chip
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (notificationFilterUnreadOnly) AccentOrange else MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.clickable { notificationFilterUnreadOnly = !notificationFilterUnreadOnly }
+                        ) {
+                            Text(
+                                text = if (notificationFilterUnreadOnly) "فقط خوانده‌نشده" else "همه پیام‌ها",
+                                color = if (notificationFilterUnreadOnly) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    val filteredNotifications = remember(notifications, notificationFilterUnreadOnly) {
+                        if (notificationFilterUnreadOnly) notifications.filter { !it.isRead } else notifications
+                    }
+
+                    if (filteredNotifications.isEmpty()) {
+                        Text(
+                            text = if (notificationFilterUnreadOnly) "هیچ پیام خوانده‌نشده‌ای وجود ندارد." else "هنوز اطلاعیه‌ای ثبت نشده است.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            filteredNotifications.take(4).forEach { notif ->
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (notif.isRead) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surfaceVariant,
+                                    border = if (!notif.isRead) androidx.compose.foundation.BorderStroke(1.dp, AccentOrange.copy(alpha = 0.5f)) else null,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onNotificationsClick() }
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = notif.title,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (notif.isRead) Color.White else AccentYellow
+                                            )
+                                            if (!notif.isRead) {
+                                                Surface(shape = CircleShape, color = AccentOrange, modifier = Modifier.size(8.dp)) {}
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = notif.message,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        TextButton(
+                            onClick = onNotificationsClick,
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text("مشاهده همه اعلان‌ها", color = AccentYellow, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
@@ -1072,6 +1427,15 @@ fun AgentDashboardScreen(
             dismissButton = {
                 TextButton(onClick = { showWithdrawModal = false }) { Text("انصراف") }
             }
+        )
+    }
+
+    // Referral Share Bottom Sheet (Issues 3 & 9)
+    if (showReferralShareSheet) {
+        ReferralShareBottomSheet(
+            referralCode = agentReferralCode,
+            referrerName = userName,
+            onDismiss = { showReferralShareSheet = false }
         )
     }
 }

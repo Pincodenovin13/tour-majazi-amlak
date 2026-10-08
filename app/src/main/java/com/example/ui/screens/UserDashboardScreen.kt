@@ -76,9 +76,11 @@ import androidx.compose.ui.unit.sp
 import com.example.data.AppRepository
 import com.example.model.CommissionStatus
 import com.example.model.PropertyItem
+import com.example.model.ReferralRecord
 import com.example.model.ReferralTransaction
 import com.example.model.ReferrerTier
 import com.example.model.WithdrawalStatus
+import com.example.ui.components.ReferralShareBottomSheet
 import com.example.ui.theme.AccentOrange
 import com.example.ui.theme.AccentYellow
 import com.example.ui.theme.BrandPrimary
