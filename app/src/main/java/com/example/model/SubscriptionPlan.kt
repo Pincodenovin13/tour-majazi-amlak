@@ -10,7 +10,10 @@ data class SubscriptionPlan(
     val isPopular: Boolean = false,
     val badge: String? = null,
     val tourCapacity: String,
-    val features: List<String>
+    val features: List<String>,
+    val baseTours: Int = 9,
+    val bonusTours: Int = 3,
+    val commissionPercent: Int = 20
 )
 
 data class ActiveSubscription(

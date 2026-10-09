@@ -120,6 +120,7 @@ fun AgentDashboardScreen(
     onCityAdsClick: () -> Unit,
     onAnalyticsClick: () -> Unit = {},
     onNotificationsClick: () -> Unit = {},
+    onMyReferralsClick: () -> Unit = {},
     onCapture360Click: () -> Unit = {},
     onProfileClick: () -> Unit,
     onOpenTourViewer: (PropertyItem) -> Unit,
@@ -154,6 +155,9 @@ fun AgentDashboardScreen(
     val notifications by repository.notifications.collectAsState()
     val unreadNotificationsCount = notifications.count { !it.isRead }
     val referralRecords by repository.referralRecords.collectAsState()
+    val totalPublishedTours by repository.totalPublishedToursCount.collectAsState()
+    val bonusToursAwarded by repository.bonusToursAwarded.collectAsState()
+    val currentPlan = repository.getCurrentPlan()
 
     var showCoverChangeDialog by remember { mutableStateOf(false) }
     var showAvatarChangeDialog by remember { mutableStateOf(false) }
@@ -225,20 +229,21 @@ fun AgentDashboardScreen(
                         }
                     }
 
-                    // Button to change Cover Photo
+                    // Button to change Cover Photo (Issue 4: Clearly visible with bright background)
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.Black.copy(alpha = 0.7f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                        shape = RoundedCornerShape(10.dp),
+                        color = AccentYellow,
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color.White),
+                        shadowElevation = 6.dp,
                         modifier = Modifier.clickable { showCoverChangeDialog = true }
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Icon(Icons.Default.CameraAlt, contentDescription = null, tint = AccentYellow, modifier = Modifier.size(14.dp))
-                            Text("تغییر طرح سردر و لابی", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                            Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                            Text("تغییر عکس سردر", color = Color.Black, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
@@ -416,6 +421,71 @@ fun AgentDashboardScreen(
                                 }
                             }
 
+                            // Issue 10: Tour capacity, remaining base tours, bonus tours (اشانتیون) & total used
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    val isUnlimited = currentPlan.baseTours == Int.MAX_VALUE
+                                    val baseLimit = currentPlan.baseTours
+                                    val totalLimit = if (isUnlimited) "نامحدود" else "${baseLimit + if (bonusToursAwarded) currentPlan.bonusTours else 0}"
+                                    val remainingBase = if (isUnlimited) "نامحدود" else "${(baseLimit - totalPublishedTours).coerceAtLeast(0)} از $baseLimit"
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "تورهای باقیمانده: $remainingBase (پایه)",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = "تورهای استفاده‌شده: $totalPublishedTours از $totalLimit",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = AccentYellow,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+
+                                    if (bonusToursAwarded && currentPlan.bonusTours > 0) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = BrandSecondary, modifier = Modifier.size(16.dp))
+                                                Text(
+                                                    text = "تورهای اشانتیون رایگان:",
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = BrandSecondary,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = BrandSecondary.copy(alpha = 0.2f),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, BrandSecondary)
+                                            ) {
+                                                Text(
+                                                    text = "۳ تور اشانتیون فعال",
+                                                    color = BrandSecondary,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
                             // 2-DAY EXPIRY WARNING (CRITICAL RULE)
                             if (isNearExpiry) {
                                 Spacer(modifier = Modifier.height(10.dp))
@@ -524,11 +594,11 @@ fun AgentDashboardScreen(
             }
         }
 
-        // 3. MAIN ACTION GRID (3x2 BUTTONS)
+        // 3. MAIN ACTION GRID (8 SEPARATE CARDS / TILES - Issue 3)
         item {
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 Text(
-                    text = "منوی اختصاصی مشاور املاک",
+                    text = "بخش‌های اختصاصی پنل مشاور املاک",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
@@ -536,20 +606,41 @@ fun AgentDashboardScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // Row 1: معرفیشدگان من & اطلاعیه‌ها و پیام‌های سیستم (Issue 3)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     AgentGridButton(
-                        title = "ساخت تور جدید",
-                        subtitle = "عکسبرداری هوشمند ۳۶۰",
-                        icon = Icons.Default.CameraAlt,
-                        color = ColorTour,
+                        title = "معرفی‌شدگان من",
+                        subtitle = "${PersianUtils.toPersianDigits(referralRecords.size)} مشاور ثبت‌شده",
+                        icon = Icons.Default.Group,
+                        color = BrandSecondary,
                         modifier = Modifier.weight(1f),
-                        onClick = onCreateTourClick,
-                        testTag = "btn_grid_create_tour"
+                        onClick = onMyReferralsClick,
+                        badge = if (referralRecords.isNotEmpty()) "${PersianUtils.toPersianDigits(referralRecords.size)} مشاور" else null,
+                        testTag = "btn_grid_my_referrals"
                     )
 
+                    AgentGridButton(
+                        title = "اطلاعیه‌ها و پیام‌های سیستم",
+                        subtitle = "${PersianUtils.toPersianDigits(notifications.size)} اعلان دریافتی",
+                        icon = Icons.Default.Notifications,
+                        color = AccentOrange,
+                        modifier = Modifier.weight(1f),
+                        onClick = onNotificationsClick,
+                        badge = if (unreadNotificationsCount > 0) "${PersianUtils.toPersianDigits(unreadNotificationsCount)} پیام نو" else null,
+                        testTag = "btn_grid_notifications"
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Row 2: املاک من & ساخت تور جدید (Issue 3)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     AgentGridButton(
                         title = "املاک من",
                         subtitle = "${PersianUtils.toPersianDigits(properties.size)} فایل ثبت شده",
@@ -559,10 +650,21 @@ fun AgentDashboardScreen(
                         onClick = onMyPropertiesClick,
                         testTag = "btn_grid_my_properties"
                     )
+
+                    AgentGridButton(
+                        title = "ساخت تور جدید",
+                        subtitle = "عکسبرداری هوشمند ۳۶۰",
+                        icon = Icons.Default.CameraAlt,
+                        color = ColorTour,
+                        modifier = Modifier.weight(1f),
+                        onClick = onCreateTourClick,
+                        testTag = "btn_grid_create_tour"
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                // Row 3: اشتراک من & تبلیغات شهری (Issue 3)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -591,20 +693,11 @@ fun AgentDashboardScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                // Row 4: پروفایل مشاور & آمار بازدید (Issue 3)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    AgentGridButton(
-                        title = "آمار بازدید",
-                        subtitle = "${PersianUtils.toPersianDigits(totalViews)} بازدید کل",
-                        icon = Icons.Default.Insights,
-                        color = ColorAnalytics,
-                        modifier = Modifier.weight(1f),
-                        onClick = onAnalyticsClick,
-                        testTag = "btn_grid_analytics"
-                    )
-
                     AgentGridButton(
                         title = "پروفایل مشاور",
                         subtitle = "تنظیمات آژانس و چهره",
@@ -613,6 +706,16 @@ fun AgentDashboardScreen(
                         modifier = Modifier.weight(1f),
                         onClick = onProfileClick,
                         testTag = "btn_grid_profile"
+                    )
+
+                    AgentGridButton(
+                        title = "آمار بازدید",
+                        subtitle = "${PersianUtils.toPersianDigits(totalViews)} بازدید کل",
+                        icon = Icons.Default.Insights,
+                        color = ColorAnalytics,
+                        modifier = Modifier.weight(1f),
+                        onClick = onAnalyticsClick,
+                        testTag = "btn_grid_analytics"
                     )
                 }
             }
@@ -1406,17 +1509,17 @@ fun AgentDashboardScreen(
                 Button(
                     onClick = {
                         val amount = withdrawAmountInput.toLongOrNull() ?: 0L
-                        val success = repository.submitWithdrawalRequest(
+                        val (success, message) = repository.submitWithdrawalRequest(
                             amount = amount,
                             cardNumber = cardInput,
                             shebaNumber = shebaInput,
                             desc = "تسویه پورسانت معرفی همکاران املاک (واریز ۲۴ ساعته)"
                         )
                         if (success) {
-                            Toast.makeText(context, "درخواست تسویه ثبت شد. طی ۲۴ ساعت واریز می‌گردد.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                             showWithdrawModal = false
                         } else {
-                            Toast.makeText(context, "خطا: حداقل مبلغ ۵۰۰,۰۰۰ تومان و شماره شبا با IR معتبر الزامی است.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = BrandSecondary)

@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,6 +27,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.HomeWork
@@ -92,6 +95,7 @@ fun MyPropertiesScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("همه") }
     var propertyToDelete by remember { mutableStateOf<PropertyItem?>(null) }
+    var propertyToMarkSold by remember { mutableStateOf<PropertyItem?>(null) }
 
     val filteredList = properties.filter { item ->
         val matchesSearch = searchQuery.isBlank() ||
@@ -289,12 +293,61 @@ fun MyPropertiesScreen(
                                 val shareIntent = Intent.createChooser(sendIntent, "اشتراک‌گذاری لینک تور")
                                 context.startActivity(shareIntent)
                             },
-                            onDelete = { propertyToDelete = item }
+                            onDelete = { propertyToDelete = item },
+                            onMarkSold = { propertyToMarkSold = item }
                         )
                     }
                 }
             }
         }
+    }
+
+    // Mark as Sold Confirmation Dialog (Issue 7 & 8)
+    propertyToMarkSold?.let { prop ->
+        AlertDialog(
+            onDismissRequest = { propertyToMarkSold = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = BrandSecondary)
+                    Text("علامت‌گذاری به عنوان فروش رفته", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("آیا ملک «${prop.title}» فروخته شده است؟")
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = "هشدار ضروری: پس از فروش، حتماً ملک از پلتفرم حذف می‌شود تا خریداران دچار سردرگمی نشوند و برای بازدید مراجعه نکنند. طبق قوانین، ظرفیت مصرف‌شده پلن بازنمی‌گردد.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(10.dp),
+                            lineHeight = 18.sp
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        repository.markPropertySold(prop.id)
+                        Toast.makeText(context, "ملک به عنوان «فروش رفته» ثبت و از دید عموم مخفی شد.", Toast.LENGTH_LONG).show()
+                        propertyToMarkSold = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandSecondary)
+                ) {
+                    Text("تایید فروش و مخفی‌سازی")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { propertyToMarkSold = null }) {
+                    Text("انصراف")
+                }
+            }
+        )
     }
 
     // Delete Confirmation Dialog
@@ -328,7 +381,8 @@ private fun PropertyCardItem(
     item: PropertyItem,
     onOpenTour: () -> Unit,
     onShare: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onMarkSold: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -477,7 +531,28 @@ private fun PropertyCardItem(
                 }
 
                 // Action Buttons
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // Mark as Sold Button (Issue 7 & 8)
+                    Button(
+                        onClick = onMarkSold,
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.85f)),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.height(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "فروش رفته",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
                     IconButton(
                         onClick = onShare,
                         modifier = Modifier

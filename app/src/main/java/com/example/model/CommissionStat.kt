@@ -36,6 +36,9 @@ data class CommissionStat(
     val targetCount: Int = 9,
     val currentTier: ReferrerTier = ReferrerTier.STANDARD,
     val daysRemainingInWindow: Int = 8,
-    val totalWindowDays: Int = 15,
+    val totalWindowDays: Int = 9,
+    val warningsCount: Int = 0,
+    val isDeactivated: Boolean = false,
+    val withdrawalCount: Int = 0,
     val transactions: List<ReferralTransaction> = listOf()
 )

@@ -5,6 +5,7 @@ enum class NotificationType {
     COMMISSION_EARNED,
     SUBSCRIPTION_EXPIRING,
     WITHDRAWAL_UPDATE,
+    WARNING,
     GENERAL
 }
 

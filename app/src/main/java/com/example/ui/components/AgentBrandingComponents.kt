@@ -101,7 +101,8 @@ data class FantasyAvatarPreset(
     val primaryColor: Color,
     val secondaryColor: Color,
     val icon: ImageVector,
-    val badge: String
+    val badge: String,
+    val imageRes: Int = R.drawable.img_avatar_m1
 )
 
 // Data Model: Agency Cover / Property / Lobby / Logo Presets
@@ -117,7 +118,7 @@ data class AgencyCoverPreset(
 
 object AgentBrandingData {
     val fantasyAvatars = listOf(
-        // Men Avatars (چهره فانتزی مرد)
+        // Men Avatars (چهره فانتزی مرد - ۴ کارتون متمایز)
         FantasyAvatarPreset(
             id = "male_formal",
             name = "مهندس کیان آریا",
@@ -126,7 +127,8 @@ object AgentBrandingData {
             primaryColor = Color(0xFF1565C0),
             secondaryColor = Color(0xFF0D47A1),
             icon = Icons.Default.BusinessCenter,
-            badge = "رسمی دیپلمات"
+            badge = "رسمی دیپلمات",
+            imageRes = R.drawable.img_avatar_m1
         ),
         FantasyAvatarPreset(
             id = "male_young",
@@ -136,17 +138,8 @@ object AgentBrandingData {
             primaryColor = Color(0xFFFF5722),
             secondaryColor = Color(0xFFD84315),
             icon = Icons.Default.Person,
-            badge = "مشاور پرانرژی"
-        ),
-        FantasyAvatarPreset(
-            id = "male_architect",
-            name = "مهندس کامران بهرامی",
-            roleTitle = "کارشناس ارزیابی و سازه • استایل مهندسی",
-            isMale = true,
-            primaryColor = Color(0xFF00897B),
-            secondaryColor = Color(0xFF004D40),
-            icon = Icons.Default.Foundation,
-            badge = "کارشناس سازه"
+            badge = "مشاور پرانرژی",
+            imageRes = R.drawable.img_avatar_m2
         ),
         FantasyAvatarPreset(
             id = "male_senior",
@@ -156,10 +149,22 @@ object AgentBrandingData {
             primaryColor = Color(0xFF4E342E),
             secondaryColor = Color(0xFF3E2723),
             icon = Icons.Default.WorkspacePremium,
-            badge = "۳۰ سال سابقه"
+            badge = "۳۰ سال سابقه",
+            imageRes = R.drawable.img_avatar_m3
+        ),
+        FantasyAvatarPreset(
+            id = "male_architect",
+            name = "مهندس کامران بهرامی",
+            roleTitle = "کارشناس ارزیابی و سازه • استایل مهندسی",
+            isMale = true,
+            primaryColor = Color(0xFF00897B),
+            secondaryColor = Color(0xFF004D40),
+            icon = Icons.Default.Foundation,
+            badge = "کارشناس سازه",
+            imageRes = R.drawable.img_avatar_m4
         ),
 
-        // Women Avatars (چهره فانتزی زن)
+        // Women Avatars (چهره فانتزی زن - ۴ کارتون متمایز)
         FantasyAvatarPreset(
             id = "female_manager",
             name = "مهندس مریم پارسا",
@@ -168,7 +173,8 @@ object AgentBrandingData {
             primaryColor = Color(0xFF8E24AA),
             secondaryColor = Color(0xFF4A148C),
             icon = Icons.Default.Face,
-            badge = "مدیر قراردادها"
+            badge = "مدیر قراردادها",
+            imageRes = R.drawable.img_avatar_f1
         ),
         FantasyAvatarPreset(
             id = "female_sales",
@@ -178,7 +184,8 @@ object AgentBrandingData {
             primaryColor = Color(0xFFD81B60),
             secondaryColor = Color(0xFF880E4F),
             icon = Icons.Default.Star,
-            badge = "مشاور برتر ماه"
+            badge = "مشاور برتر ماه",
+            imageRes = R.drawable.img_avatar_f2
         ),
         FantasyAvatarPreset(
             id = "female_interior",
@@ -188,7 +195,8 @@ object AgentBrandingData {
             primaryColor = Color(0xFF00ACC1),
             secondaryColor = Color(0xFF006064),
             icon = Icons.Default.Weekend,
-            badge = "معماری داخلی"
+            badge = "معماری داخلی",
+            imageRes = R.drawable.img_avatar_f3
         ),
         FantasyAvatarPreset(
             id = "female_formal",
@@ -198,7 +206,8 @@ object AgentBrandingData {
             primaryColor = Color(0xFF5E35B1),
             secondaryColor = Color(0xFF311B92),
             icon = Icons.Default.Apartment,
-            badge = "مشاور بین‌الملل"
+            badge = "مشاور بین‌الملل",
+            imageRes = R.drawable.img_avatar_f4
         )
     )
 
@@ -301,35 +310,13 @@ fun AgentAvatarView(
                 modifier = Modifier.fillMaxSize()
             )
         } else if (currentPreset != null) {
-            // Fantasy Avatar Illustrated Presentation
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.radialGradient(
-                            listOf(currentPreset.primaryColor, currentPreset.secondaryColor)
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = currentPreset.icon,
-                        contentDescription = currentPreset.name,
-                        tint = Color.White,
-                        modifier = Modifier.size((sizeDp * 0.45f).dp)
-                    )
-                    Text(
-                        text = if (currentPreset.isMale) "مرد" else "زن",
-                        color = Color.White.copy(alpha = 0.9f),
-                        fontSize = (sizeDp * 0.14f).sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
+            // Actual cartoon avatar illustration image
+            Image(
+                painter = painterResource(id = currentPreset.imageRes),
+                contentDescription = currentPreset.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
         } else {
             Image(
                 painter = painterResource(id = fallbackDrawable),
@@ -626,20 +613,18 @@ fun AgentAvatarPickerDialog(
                                 modifier = Modifier.padding(8.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                // Avatar circle icon
+                                // Avatar circle cartoon image (Issue 4)
                                 Surface(
                                     shape = CircleShape,
-                                    color = preset.primaryColor,
-                                    modifier = Modifier.size(46.dp)
+                                    border = BorderStroke(2.dp, if (isSelected) AccentYellow else preset.primaryColor),
+                                    modifier = Modifier.size(54.dp)
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = preset.icon,
-                                            contentDescription = null,
-                                            tint = Color.White,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
+                                    Image(
+                                        painter = painterResource(id = preset.imageRes),
+                                        contentDescription = preset.name,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
                                 }
 
                                 Spacer(modifier = Modifier.height(4.dp))

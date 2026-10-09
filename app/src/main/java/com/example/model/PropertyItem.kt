@@ -3,7 +3,8 @@ package com.example.model
 enum class PropertyStatus(val titleFa: String) {
     ACTIVE_TOUR("تور فعال ۳۶۰"),
     PROCESSING("در حال پردازش"),
-    DRAFT("پیش‌نویس")
+    DRAFT("پیش‌نویس"),
+    SOLD("فروش رفته (غیرفعال)")
 }
 
 data class PropertyItem(

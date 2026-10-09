@@ -112,58 +112,80 @@ class AppRepository {
     private val _isAgentOnline = MutableStateFlow(true)
     val isAgentOnline: StateFlow<Boolean> = _isAgentOnline.asStateFlow()
 
+    // Issue 10 & Issue 7: Anti-cheat permanent published tours count & bonus tours system
+    private val _totalPublishedToursCount = MutableStateFlow(5) // initially 5 tours used
+    val totalPublishedToursCount: StateFlow<Int> = _totalPublishedToursCount.asStateFlow()
+
+    private val _bonusToursAwarded = MutableStateFlow(false)
+    val bonusToursAwarded: StateFlow<Boolean> = _bonusToursAwarded.asStateFlow()
+
     // Agent's dedicated referral code for introducing colleague agents
     private val _agentReferralCode = MutableStateFlow("VR-AG789")
     val agentReferralCode: StateFlow<String> = _agentReferralCode.asStateFlow()
 
-    // Subscription Plans (New Prices: 1M=1.5M, 2M=2.5M, 3M=4M)
+    // Subscription Plans (Issue 5: 1M=2.5M, 2M=5M, 3M=7.5M & Issue 10: Bonus tours)
     val availablePlans = listOf(
         SubscriptionPlan(
             id = "plan_1_month",
             title = "پلن ۱ ماهه",
             durationMonths = 1,
-            price = 1_500_000L,
+            price = 2_500_000L,
+            originalPrice = 3_000_000L,
+            discountPercent = 17,
             badge = null,
-            tourCapacity = "۵ تور مجازی ۳۶۰ درجه",
+            tourCapacity = "۹ تور + ۳ تور اشانتیون (مجموعاً ۱۲)",
+            baseTours = 9,
+            bonusTours = 3,
+            commissionPercent = 20,
             features = listOf(
-                "۵ تور مجازی ۳۶۰ درجه اختصاصی",
-                "کیفیت تصویر Full HD",
-                "پشتیبانی آنلاین تیکتی",
-                "گزارش هفتگی بازدیدکنندگان"
+                "۹ تور مجازی ۳۶۰ درجه پایه",
+                "۳ تور اشانتیون رایگان پس از اتمام ۹ تور",
+                "مجموع ظرفیت ۱۲ تور مجازی Full HD",
+                "پورسانت معرفی ۲۰٪ برای معرف",
+                "پشتیبانی آنلاین تیکتی و گزارش آماری"
             )
         ),
         SubscriptionPlan(
             id = "plan_2_month",
             title = "پلن ۲ ماهه",
             durationMonths = 2,
-            price = 2_500_000L,
-            originalPrice = 3_000_000L,
+            price = 5_000_000L,
+            originalPrice = 6_000_000L,
             discountPercent = 17,
             isPopular = true,
-            badge = "محبوب",
-            tourCapacity = "۱۵ تور مجازی ۳۶۰ درجه",
+            badge = "محبوب‌ترین",
+            tourCapacity = "۱۵ تور + ۳ تور اشانتیون (مجموعاً ۱۸)",
+            baseTours = 15,
+            bonusTours = 3,
+            commissionPercent = 15,
             features = listOf(
-                "۱۵ تور مجازی ۳۶۰ درجه با کیفیت 4K",
+                "۱۵ تور مجازی ۳۶۰ درجه پایه با کیفیت 4K",
+                "۳ تور اشانتیون رایگان پس از اتمام ۱۵ تور",
+                "مجموع ظرفیت ۱۸ تور مجازی ۳۶۰",
+                "پورسانت معرفی ۱۵٪ برای معرف",
                 "هات‌اسپات‌های هوشمند جابجایی بین اتاق‌ها",
-                "نشان تاییدیه مشاور برگزیده",
-                "پشتیبانی مستقیم"
+                "نشان تاییدیه مشاور برگزیده"
             )
         ),
         SubscriptionPlan(
             id = "plan_3_month",
             title = "پلن ۳ ماهه",
             durationMonths = 3,
-            price = 4_000_000L,
-            originalPrice = 4_500_000L,
-            discountPercent = 11,
+            price = 7_500_000L,
+            originalPrice = 9_000_000L,
+            discountPercent = 17,
             badge = "به‌صرفه‌ترین",
             tourCapacity = "تورهای نامحدود ۳۶۰ درجه",
+            baseTours = Int.MAX_VALUE,
+            bonusTours = 0,
+            commissionPercent = 10,
             features = listOf(
-                "ایجاد تور مجازی ۳۶۰ درجه نامحدود",
+                "ایجاد تور مجازی ۳۶۰ درجه نامحدود (بدون سقف)",
                 "کیفیت خیره‌کننده 8K پانوراما",
+                "پورسانت معرفی ۱۰٪ برای معرف",
                 "یک نوبت اسکن و عکاسی رایگان در محل",
-                "برندینگ اختصاصی آژانس و حالت VR",
-                "پیشنهاد ویژه و به‌صرفه‌ترین پلن"
+                "برندینگ اختصاصی آژانس و حالت واقعیت مجازی VR",
+                "پیشنهاد ویژه و بهترین انتخاب مشاورین حرفه‌ای"
             )
         )
     )
@@ -378,19 +400,86 @@ class AppRepository {
         _agencyName.value = agency
     }
 
-    fun addProperty(property: PropertyItem) {
+    fun getCurrentPlan(): SubscriptionPlan {
+        val currentSub = _activeSubscription.value
+        return availablePlans.find { it.id == currentSub?.planId } ?: availablePlans[1]
+    }
+
+    fun canPublishMoreTours(): Boolean {
+        val plan = getCurrentPlan()
+        if (plan.baseTours == Int.MAX_VALUE) return true // unlimited
+        val totalAllowed = plan.baseTours + if (_bonusToursAwarded.value) plan.bonusTours else 0
+        return _totalPublishedToursCount.value < totalAllowed
+    }
+
+    fun addProperty(property: PropertyItem): Boolean {
+        val plan = getCurrentPlan()
+        val currentCount = _totalPublishedToursCount.value
+
+        // Check if reached base limit and bonus hasn't been awarded yet
+        if (plan.baseTours != Int.MAX_VALUE && currentCount >= plan.baseTours && !_bonusToursAwarded.value) {
+            _bonusToursAwarded.value = true
+            addNotification(
+                title = "🎁 ۳ تور اشانتیون رایگان به شما تعلق گرفت!",
+                message = "تبریک! شما به سقف تورهای پلن خود رسیدید. ۳ تور اشانتیون رایگان به شما تعلق گرفت!",
+                type = NotificationType.GENERAL,
+                targetRole = UserRole.AGENT
+            )
+        }
+
+        val totalLimit = if (plan.baseTours == Int.MAX_VALUE) Int.MAX_VALUE
+        else plan.baseTours + (if (_bonusToursAwarded.value) plan.bonusTours else 0)
+
+        if (currentCount >= totalLimit) {
+            addNotification(
+                title = "سقف ایجاد تور تکمیل شد",
+                message = "ظرفیت تورهای مجاز پلن شما به پایان رسیده است. جهت ثبت فایل جدید، اشتراک خود را تمدید یا ارتقا دهید.",
+                type = NotificationType.WARNING,
+                targetRole = UserRole.AGENT
+            )
+            return false
+        }
+
+        // Anti-cheat: permanent count increment
+        _totalPublishedToursCount.value = currentCount + 1
         _properties.update { listOf(property) + it }
+
+        // If newly incremented count hits base tours, trigger bonus immediately
+        if (plan.baseTours != Int.MAX_VALUE && _totalPublishedToursCount.value >= plan.baseTours && !_bonusToursAwarded.value) {
+            _bonusToursAwarded.value = true
+            addNotification(
+                title = "🎁 ۳ تور اشانتیون رایگان به شما تعلق گرفت!",
+                message = "تبریک! شما به سقف تورهای پلن خود رسیدید. ۳ تور اشانتیون رایگان به شما تعلق گرفت!",
+                type = NotificationType.GENERAL,
+                targetRole = UserRole.AGENT
+            )
+        }
+
+        return true
     }
 
     fun deleteProperty(propertyId: String) {
-        _properties.update { list -> list.filterNot { it.id == propertyId } }
-    }
-
-    fun markPropertySold(propertyId: String) {
+        // Anti-cheat: removing/deleting property hides it from list, but does NOT decrement permanent totalPublishedToursCount
         _properties.update { list -> list.filterNot { it.id == propertyId } }
         addNotification(
-            title = "ملک به عنوان فروخته شده ثبت و حذف شد",
-            message = "فایل مورد نظر از سیستم خارج شد و دیگر در لیست عمومی خریداران نمایش داده نمی‌شود.",
+            title = "حذف فایل از سیستم",
+            message = "ملک از لیست عمومی و داشبورد حذف گردید. طبق قوانین ضدتقلب، ظرفیت مصرف‌شده پلن بازنمی‌گردد.",
+            type = NotificationType.GENERAL,
+            targetRole = UserRole.AGENT
+        )
+    }
+
+    // Issue 7: Sold button marks property as SOLD and removes it from public view
+    fun markPropertySold(propertyId: String) {
+        _properties.update { list ->
+            list.map { prop ->
+                if (prop.id == propertyId) prop.copy(status = PropertyStatus.SOLD)
+                else prop
+            }.filterNot { it.id == propertyId } // Hide from active list
+        }
+        addNotification(
+            title = "ملک به عنوان فروخته شده ثبت شد",
+            message = "ملک با موفقیت به عنوان «فروش رفته» ثبت و از دید عموم خریداران خارج شد تا مشتریان دچار سردرگمی نشوند.",
             type = NotificationType.GENERAL,
             targetRole = UserRole.AGENT
         )
@@ -763,25 +852,28 @@ class AppRepository {
         _platformAds.update { list -> list.filterNot { it.id == adId } }
     }
 
-    // 4.3 & 3.2 — Buy Subscription + Exact Referral Commission Rules
-    // 1 Month (1.5M) -> 20% = 300,000 Toman
-    // 2 Month (2.5M) -> 15% = 375,000 Toman
-    // 3 Month (4M) -> 10% = 400,000 Toman
+    // 4.3 & 3.2 — Buy Subscription + Exact Referral Commission Rules (Issue 5 & 10)
+    // 1 Month (2.5M) -> 20% = 500,000 Toman
+    // 2 Month (5M) -> 15% = 750,000 Toman
+    // 3 Month (7.5M) -> 10% = 750,000 Toman
+    // Combining/Stacking plans adds duration and resets bonus state
     fun activateSubscription(plan: SubscriptionPlan) {
+        val currentSub = _activeSubscription.value
+        val existingDays = if (currentSub?.isActive == true) currentSub.remainingDays else 0
+        val addedDays = plan.durationMonths * 30
+
         _activeSubscription.value = ActiveSubscription(
             planId = plan.id,
             planTitle = plan.title,
             startDate = System.currentTimeMillis(),
-            remainingDays = plan.durationMonths * 30,
+            remainingDays = existingDays + addedDays,
             isActive = true
         )
+        // Reset bonus tour awarded flag for new cycle
+        _bonusToursAwarded.value = false
 
-        val (commissionPercent, commissionAmount) = when (plan.durationMonths) {
-            1 -> 20 to 300_000L
-            2 -> 15 to 375_000L
-            3 -> 10 to 400_000L
-            else -> 10 to (plan.price * 10 / 100)
-        }
+        val commissionAmount = (plan.price * plan.commissionPercent) / 100
+        val commissionPercent = plan.commissionPercent
 
         val curComm = _commissionStat.value
         val newTx = ReferralTransaction(
@@ -827,12 +919,50 @@ class AppRepository {
         )
     }
 
-    // 3.1 & 3.3 — Request Withdrawal (Exact Rules: Min 500,000 Toman, Only Sheba IR, 10% Tax Deducted, Nightly Processing)
-    fun submitWithdrawalRequest(amount: Long, cardNumber: String, shebaNumber: String, desc: String): Boolean {
+    // 3.1 & Issue 6: Strict Referral Target & Withdrawal Rules
+    // TARGET: 9 agent referrals
+    // First withdrawal: ALLOWED (any amount >= 500,000 Toman)
+    // Second withdrawal+: only allowed if 9-agent target reached. If not met: 500,000 Toman deducted & warning added
+    fun submitWithdrawalRequest(amount: Long, cardNumber: String, shebaNumber: String, desc: String): Pair<Boolean, String> {
         val current = _commissionStat.value
-        if (amount < 500_000L || amount > current.availableBalance) return false
+        if (current.isDeactivated) {
+            return false to "حساب معرف شما به دلیل دریافت ۳ اخطار تعلیق شده است."
+        }
+        if (amount < 500_000L || amount > current.availableBalance) {
+            return false to "مبلغ نامعتبر است (حداقل ۵۰۰,۰۰۰ تومان و حداکثر سقف موجودی)."
+        }
         val cleanSheba = shebaNumber.trim().uppercase()
-        if (!cleanSheba.startsWith("IR") || cleanSheba.length < 16) return false
+        if (!cleanSheba.startsWith("IR") || cleanSheba.length < 16) {
+            return false to "شماره شبا نامعتبر است."
+        }
+
+        // Check withdrawal target rules (Issue 6)
+        if (current.withdrawalCount >= 1 && current.successfulReferralsCount < 9) {
+            // Target not met: deduct 500,000, add warning, give extension or deactivate if 3 warnings
+            val newWarnings = current.warningsCount + 1
+            val isNowDeactivated = newWarnings >= 3
+            val deduction = 500_000L
+            val updatedBalance = (current.availableBalance - deduction).coerceAtLeast(0L)
+
+            _commissionStat.value = current.copy(
+                availableBalance = updatedBalance,
+                warningsCount = newWarnings,
+                isDeactivated = isNowDeactivated,
+                daysRemainingInWindow = if (isNowDeactivated) 0 else 9
+            )
+
+            addNotification(
+                title = if (isNowDeactivated) "حساب معرف مسدود شد" else "اخطار عدم تکمیل تارگت ۹ مشاور",
+                message = if (isNowDeactivated)
+                    "به دلیل ثبت ۳ اخطار عدم رسیدن به تارگت ۹ مشاور، حساب معرف شما تعلیق گردید."
+                else
+                    "برداشت دوم منوط به معرفی حداقل ۹ مشاور است. مبلغ ۵۰۰,۰۰۰ تومان کسر شد و اخطار $newWarnings از ۳ ثبت گردید. ۹ روز مهلت جدید دارید.",
+                type = NotificationType.WARNING,
+                targetRole = UserRole.REGULAR_USER
+            )
+
+            return false to "برداشت دوم نیازمند تکمیل تارگت ۹ مشاور است. ۵۰۰,۰۰۰ تومان جریمه کسر شد و اخطار ثبت گردید."
+        }
 
         val taxAmount = (amount * 0.10).toLong()
         val netAmount = amount - taxAmount
@@ -850,9 +980,19 @@ class AppRepository {
             status = WithdrawalStatus.PENDING
         )
 
+        // Award time extension if targets exceeded (Issue 6)
+        val addedExtension = when {
+            current.successfulReferralsCount >= 15 -> 18
+            current.successfulReferralsCount >= 10 -> 9
+            current.successfulReferralsCount >= 9 -> 9
+            else -> 0
+        }
+
         _commissionStat.value = current.copy(
             availableBalance = current.availableBalance - amount,
-            pendingBalance = current.pendingBalance + netAmount
+            pendingBalance = current.pendingBalance + netAmount,
+            withdrawalCount = current.withdrawalCount + 1,
+            daysRemainingInWindow = if (addedExtension > 0) current.daysRemainingInWindow + addedExtension else current.daysRemainingInWindow
         )
 
         _withdrawalRequests.update { listOf(newRequest) + it }
@@ -863,7 +1003,7 @@ class AppRepository {
             type = NotificationType.WITHDRAWAL_UPDATE,
             targetRole = UserRole.REGULAR_USER
         )
-        return true
+        return true to "درخواست تسویه با موفقیت ثبت شد."
     }
 
     // 3.3 & 7 — Admin Approve/Reject Withdrawal

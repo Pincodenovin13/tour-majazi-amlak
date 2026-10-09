@@ -129,7 +129,8 @@ fun NotificationCenterScreen(
                     val icon = when (notif.type) {
                         NotificationType.VISIT_REQUEST -> Icons.Default.CalendarMonth
                         NotificationType.COMMISSION_EARNED -> Icons.Default.MonetizationOn
-                        NotificationType.SUBSCRIPTION_EXPIRING -> Icons.Default.Warning
+                        NotificationType.SUBSCRIPTION_EXPIRING,
+                        NotificationType.WARNING -> Icons.Default.Warning
                         NotificationType.WITHDRAWAL_UPDATE -> Icons.Default.Payments
                         NotificationType.GENERAL -> Icons.Default.NotificationsActive
                     }
@@ -137,6 +138,7 @@ fun NotificationCenterScreen(
                         NotificationType.VISIT_REQUEST -> AccentOrange
                         NotificationType.COMMISSION_EARNED -> BrandSecondary
                         NotificationType.SUBSCRIPTION_EXPIRING -> AccentYellow
+                        NotificationType.WARNING -> MaterialTheme.colorScheme.error
                         NotificationType.WITHDRAWAL_UPDATE -> BrandPrimary
                         NotificationType.GENERAL -> AccentYellow
                     }

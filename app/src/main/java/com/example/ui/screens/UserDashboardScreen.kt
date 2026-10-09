@@ -830,9 +830,12 @@ fun UserDashboardScreen(
                             Toast.makeText(context, "شماره شبا باید با IR آغاز شده و معتبر باشد.", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
-                        val success = repository.submitWithdrawalRequest(enteredAmount, cardNumberInput, shebaInput, descInput)
+                        val (success, message) = repository.submitWithdrawalRequest(enteredAmount, cardNumberInput, shebaInput, descInput)
                         if (success) {
-                            Toast.makeText(context, "درخواست برداشت ثبت شد و در نوبت واریز شبانه قرار گرفت.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                            showWithdrawModal = false
+                        } else {
+                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                             showWithdrawModal = false
                         }
                     },

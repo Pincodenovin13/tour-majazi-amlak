@@ -9,6 +9,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,11 +43,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.ui.theme.AccentOrange
 import com.example.ui.theme.AccentYellow
 import kotlinx.coroutines.delay
@@ -86,22 +90,35 @@ fun SplashScreen(
         onSplashFinished()
     }
 
-    // Deep blue gradient background (#0D47A1 → #1976D2) as requested in Issue 8
+    // Issue 8: High-quality luxury property background with gradient overlay for text readability
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0D47A1), // Deep Blue
-                        Color(0xFF1565C0),
-                        Color(0xFF1976D2)  // Vibrant Blue
-                    )
-                )
-            )
             .testTag("splash_screen"),
         contentAlignment = Alignment.Center
     ) {
+        // Luxury villa/apartment photo background
+        Image(
+            painter = painterResource(id = R.drawable.img_splash_bg),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Gradient overlay (Deep blue and dark tones for high legibility)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF0D47A1).copy(alpha = 0.82f), // Deep Blue overlay
+                            Color(0xFF1565C0).copy(alpha = 0.75f),
+                            Color(0xFF0B192C).copy(alpha = 0.92f)  // Night luxury architectural tone
+                        )
+                    )
+                )
+        )
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
@@ -187,19 +204,19 @@ fun SplashScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // App Name
+            // App Name & Welcome
             Text(
-                text = "تور مجازی املاک",
-                style = MaterialTheme.typography.headlineLarge,
+                text = "به تور مجازی املاک خوش آمدید",
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.alpha(alpha.value)
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Exact Tagline requested in Issue 8: "پلتفرم بازدید ۳۶۰ درجه و واقعیت مجازی املاک"
+            // Exact Subtitle requested in Issue 8: "پلتفرم بازدید ۳۶۰ درجه و واقعیت مجازی املاک"
             Text(
                 text = "پلتفرم بازدید ۳۶۰ درجه و واقعیت مجازی املاک",
                 style = MaterialTheme.typography.titleMedium,

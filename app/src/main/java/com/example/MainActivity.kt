@@ -27,6 +27,7 @@ import com.example.model.PropertyItem
 import com.example.model.UserRole
 import com.example.ui.screens.AgentDashboardScreen
 import com.example.ui.screens.AgentPublicProfileScreen
+import com.example.ui.screens.AgentReferralsScreen
 import com.example.ui.screens.Capture360Screen
 import com.example.ui.screens.CityAdsCreateScreen
 import com.example.ui.screens.CityAdsViewScreen
@@ -35,6 +36,7 @@ import com.example.ui.screens.LoginScreen
 import com.example.ui.screens.MainDashboardScreen
 import com.example.ui.screens.MyPropertiesScreen
 import com.example.ui.screens.NotificationCenterScreen
+import com.example.ui.screens.OnboardingScreen
 import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.PropertyDetailTourScreen
 import com.example.ui.screens.RoleSelectionScreen
@@ -45,10 +47,12 @@ import com.example.ui.theme.MyApplicationTheme
 
 enum class Screen {
     SPLASH,
+    ONBOARDING,
     MAIN_DASHBOARD,
     ROLE_SELECTION,
     LOGIN,
     AGENT_DASHBOARD,
+    AGENT_REFERRALS,
     USER_DASHBOARD,
     CREATE_TOUR,
     CAPTURE_360,
@@ -125,10 +129,19 @@ fun RealEstateTourApp(repository: AppRepository) {
         label = "screen_transition"
     ) { screen ->
         when (screen) {
-            // Issue 8: After 3-second splash screen, navigate to user type selection
+            // Issue 2 & 8: Splash (3s) -> 5 Onboarding Slides (swipeable) -> User Type Selection
             Screen.SPLASH -> {
                 SplashScreen(
                     onSplashFinished = {
+                        currentScreen = Screen.ONBOARDING
+                        screenHistory = listOf(Screen.ONBOARDING)
+                    }
+                )
+            }
+
+            Screen.ONBOARDING -> {
+                OnboardingScreen(
+                    onFinish = {
                         currentScreen = Screen.ROLE_SELECTION
                         screenHistory = listOf(Screen.ROLE_SELECTION)
                     }
@@ -198,12 +211,20 @@ fun RealEstateTourApp(repository: AppRepository) {
                     onCityAdsClick = { navigateTo(Screen.CITY_ADS_VIEW) },
                     onAnalyticsClick = { navigateTo(Screen.CITY_ADS_VIEW) },
                     onNotificationsClick = { navigateTo(Screen.NOTIFICATION_CENTER) },
+                    onMyReferralsClick = { navigateTo(Screen.AGENT_REFERRALS) },
                     onCapture360Click = { navigateTo(Screen.CAPTURE_360) },
                     onProfileClick = { navigateTo(Screen.PROFILE) },
                     onOpenTourViewer = { property ->
                         activePropertyForTour = property
                         navigateTo(Screen.PROPERTY_DETAIL)
                     }
+                )
+            }
+
+            Screen.AGENT_REFERRALS -> {
+                AgentReferralsScreen(
+                    repository = repository,
+                    onBackClick = { navigateBack() }
                 )
             }
 
