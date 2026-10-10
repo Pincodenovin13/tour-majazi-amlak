@@ -51,6 +51,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -62,6 +63,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
@@ -137,6 +139,7 @@ import com.example.storage.SessionSupersededException
 import com.example.storage.SphereImageStore
 import com.example.storage.SphereImageStore.StitchedSphere
 import com.example.storage.rememberImageBufferManager
+import com.example.ui.theme.AccentYellow
 import com.example.ui.theme.ChromeScrim
 import com.example.ui.theme.GlassContent
 import com.example.ui.theme.GlassContentDim
@@ -222,6 +225,7 @@ private const val RING_LATITUDE_SPAN_FACTOR = 1.3f
 fun PhotoSphereCameraScreen(
     onSphereReady: (StitchedSphere) -> Unit,
     onBackClick: (() -> Unit)? = null,
+    onSwitchToManual: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -1143,6 +1147,7 @@ fun PhotoSphereCameraScreen(
                 onToggleSeams = { seamEnabled = !seamEnabled },
                 colorFrames = colorFrames,
                 onToggleColorFrames = { colorFrames = !colorFrames },
+                onSwitchToManual = onSwitchToManual,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(insets),
@@ -1267,6 +1272,7 @@ private fun CaptureHud(
     colorFrames: Boolean,
     onToggleColorFrames: () -> Unit,
     onBackClick: (() -> Unit)? = null,
+    onSwitchToManual: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier = modifier) {
@@ -1416,6 +1422,30 @@ private fun CaptureHud(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             HintCard(text = hint)
+            if (onSwitchToManual != null) {
+                Button(
+                    onClick = onSwitchToManual,
+                    shape = PillShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentYellow,
+                        contentColor = Color.Black,
+                    ),
+                    modifier = Modifier.height(44.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = Color.Black
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.capture_mode_manual),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+            }
             // Debug-only A/B control for the lens model: a device that reports
             // LENS_DISTORTION in the wrong convention warps every frame, and
             // re-stitching the same frames as a pinhole isolates it.
@@ -2344,7 +2374,7 @@ private suspend fun ImageCapture.takePictureTo(
  * makes [ProcessCameraProvider.bindToLifecycle] throw, which the caller turns
  * into a fall back to the default back camera.
  */
-private fun widestCameraSelector(context: Context): CameraSelector? {
+internal fun widestCameraSelector(context: Context): CameraSelector? {
     val id = widestBackCameraId(context) ?: return null
     return CameraSelector.Builder()
         .addCameraFilter { cameras ->

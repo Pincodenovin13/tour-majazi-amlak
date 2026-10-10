@@ -79,7 +79,13 @@
     <string name="capture_starting">در حال راه‌اندازی دوربین…</string>
     <string name="capture_low_accuracy">دقت قطب‌نما پایین است — گوشی را به شکل ۸ انگلیسی حرکت دهید</string>
     <string name="capture_accuracy_blocked">کالیبراسیون سنسور نامعتبر است — گوشی را حرکت دهید</string>
-    <string name="capture_orientation_unavailable">سنسور چرخش در دستگاه یافت نشد؛ حالت شبیه‌ساز فعال است.</string>
+    <string name="capture_orientation_unavailable">سنسور چرخش در دستگاه یافت نشد؛ می‌توانید از حالت عکاسی دستی استفاده کنید.</string>
+    <string name="capture_mode_manual">حالت دستی</string>
+    <string name="capture_mode_auto">حالت خودکار</string>
+    <string name="capture_manual_instructions">دستگاه شما ژیروسکوپ ندارد. از حالت دستی استفاده کنید. گوشی را به آرامی بچرخانید و در هر ۴۵ درجه یک عکس بگیرید.</string>
+    <string name="capture_manual_shoot">عکس بگیر</string>
+    <string name="capture_manual_stitch">دوخت عکس‌ها</string>
+    <string name="capture_manual_rotate_guide">گوشی را ۴۵ درجه بچرخانید ←</string>
     <string name="capture_sphere_complete">ثبت تمام ۳۶۰ درجه کامل شد</string>
     <string name="capture_restart">شروع مجدد ثبت</string>
     <string name="capture_undo">لغو آخرین عکس</string>
