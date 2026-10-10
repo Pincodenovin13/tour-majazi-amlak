@@ -105,6 +105,8 @@ import com.example.R
 import com.example.data.AppRepository
 import com.example.data.IranProvincesData
 import com.example.data.Province
+import com.example.model.AdItem
+import com.example.model.AdStatus
 import com.example.model.PropertyItem
 import com.example.model.PropertyStatus
 import com.example.model.UserRole
@@ -136,7 +138,11 @@ fun MainDashboardScreen(
     onRolePathSelected: (UserRole, isReferrer: Boolean) -> Unit,
     onCitySelected: (cityName: String) -> Unit,
     onOpenTourViewer: (PropertyItem) -> Unit,
+    onOpenAgentProfile: (agentName: String, city: String) -> Unit = { _, _ -> },
     onAdminPanelClick: () -> Unit = {},
+    onNotificationClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {},
+    onRequireLogin: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -144,6 +150,10 @@ fun MainDashboardScreen(
 
     val properties by repository.properties.collectAsState()
     val isAgentOnline by repository.isAgentOnline.collectAsState()
+    val isLoggedIn by repository.isLoggedIn.collectAsState()
+    val ads by repository.ads.collectAsState()
+
+    var showGuestDialog by remember { mutableStateOf(false) }
 
     // Default to Mazandaran and Sari
     var selectedProvince by remember { mutableStateOf(provinces.find { it.id == "mazandaran" } ?: provinces.first()) }
@@ -179,6 +189,41 @@ fun MainDashboardScreen(
         }
     }
 
+    if (showGuestDialog) {
+        AlertDialog(
+            onDismissRequest = { showGuestDialog = false },
+            title = {
+                Text(
+                    text = "نیاز به ثبت‌نام یا ورود",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            },
+            text = {
+                Text(
+                    text = "برای ارتباط مستقیم با مشاور یا ذخیره ملک، لطفاً وارد حساب خود شوید.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showGuestDialog = false
+                        onRequireLogin()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentYellow)
+                ) {
+                    Text("ثبت‌نام / ورود", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showGuestDialog = false }) {
+                    Text("انصراف")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -203,22 +248,52 @@ fun MainDashboardScreen(
 
                         Column {
                             Text(
-                                text = "تور مجازی املاک ایران",
+                                text = "تور مجازی املاک",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
                             Text(
-                                text = "پلتفرم بازدید ۳۶۰ درجه و واقعیت مجازی",
+                                text = "بازدید ۳۶۰ درجه و واقعیت مجازی",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AccentYellow
                             )
                         }
                     }
                 },
-                actions = {},
+                actions = {
+                    IconButton(onClick = { onCitySelected(selectedCity) }) {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = "جستجو",
+                            tint = Color.White
+                        )
+                    }
+                    if (isLoggedIn) {
+                        IconButton(onClick = onNotificationClick) {
+                            Icon(
+                                Icons.Default.Notifications,
+                                contentDescription = "اعلان‌ها",
+                                tint = Color.White
+                            )
+                        }
+                    }
+                    IconButton(onClick = {
+                        if (isLoggedIn) {
+                            onProfileClick()
+                        } else {
+                            onRequireLogin()
+                        }
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "پروفایل",
+                            tint = if (isLoggedIn) AccentYellow else Color.White
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
+                    containerColor = Color(0xFF1E1E1E),
                     titleContentColor = Color.White
                 )
             )
@@ -477,6 +552,28 @@ fun MainDashboardScreen(
 
                                 Spacer(modifier = Modifier.height(14.dp))
 
+                                // BANNER ADS CAROUSEL (5s Auto-rotating)
+                                CityBannerAdsCarousel(
+                                    ads = ads,
+                                    selectedCity = selectedCity,
+                                    onOpenTour = { ad ->
+                                        val matchingProp = properties.find { it.id == ad.propertyId } ?: properties.firstOrNull()
+                                        if (matchingProp != null) {
+                                            onOpenTourViewer(matchingProp)
+                                        }
+                                    }
+                                )
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // AGENTS LIST IN CITY
+                                CityAgentsListSection(
+                                    selectedCity = selectedCity,
+                                    onOpenAgentProfile = onOpenAgentProfile
+                                )
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
                                 // TRANSACTION TYPE TABS: "همه", "فروش (خرید)", "رهن و اجاره"
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -551,16 +648,28 @@ fun MainDashboardScreen(
                                 isAgentOnline = isAgentOnline,
                                 onOpenTour = { onOpenTourViewer(property) },
                                 onRequestVisit = {
-                                    propertyForVisitBooking = property
+                                    if (!isLoggedIn) {
+                                        showGuestDialog = true
+                                    } else {
+                                        propertyForVisitBooking = property
+                                    }
                                 },
                                 onCall = { phone ->
-                                    repository.notifyAgentOfCustomerInquiry(property.title, "تماس تلفنی")
-                                    val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
-                                    context.startActivity(dialIntent)
+                                    if (!isLoggedIn) {
+                                        showGuestDialog = true
+                                    } else {
+                                        repository.notifyAgentOfCustomerInquiry(property.title, "تماس تلفنی")
+                                        val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
+                                        context.startActivity(dialIntent)
+                                    }
                                 },
                                 onSocialChannel = { channelName, uriStr ->
-                                    repository.notifyAgentOfCustomerInquiry(property.title, channelName)
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uriStr)))
+                                    if (!isLoggedIn) {
+                                        showGuestDialog = true
+                                    } else {
+                                        repository.notifyAgentOfCustomerInquiry(property.title, channelName)
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uriStr)))
+                                    }
                                 }
                             )
                         }
@@ -1494,6 +1603,290 @@ private fun OnboardingCarouselBottomSheet(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CityBannerAdsCarousel(
+    ads: List<AdItem>,
+    selectedCity: String,
+    onOpenTour: (AdItem) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val cityAds = remember(ads, selectedCity) {
+        val filtered = ads.filter { it.city == selectedCity && it.status == AdStatus.ACTIVE }
+        if (filtered.isNotEmpty()) filtered else ads.filter { it.status == AdStatus.ACTIVE }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(Icons.Default.Campaign, contentDescription = null, tint = AccentOrange)
+                Text(
+                    text = "تبلیغات بنری و تورهای ویژه در شهر $selectedCity",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (cityAds.isEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(110.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "هنوز تبلیغی در این شهر ثبت نشده",
+                        color = Color.White.copy(alpha = 0.6f),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        } else {
+            val pagerState = rememberPagerState(pageCount = { cityAds.size })
+
+            LaunchedEffect(pagerState, cityAds.size) {
+                while (true) {
+                    kotlinx.coroutines.delay(5000)
+                    if (cityAds.size > 1) {
+                        val nextPage = (pagerState.currentPage + 1) % cityAds.size
+                        pagerState.animateScrollToPage(nextPage)
+                    }
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+                    .clip(RoundedCornerShape(14.dp))
+            ) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize()
+                ) { page ->
+                    val ad = cityAds[page]
+                    Card(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clickable { onOpenTour(ad) },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            val bannerRes = if (ad.bannerDrawableRes != 0) ad.bannerDrawableRes else R.drawable.img_tour_sample
+                            Image(
+                                painter = painterResource(id = bannerRes),
+                                contentDescription = ad.propertyTitle,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))
+                                        )
+                                    )
+                            )
+                            Column(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(12.dp)
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = AccentOrange
+                                ) {
+                                    Text(
+                                        text = "تور ۳۶۰ ویژه",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = ad.propertyTitle,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${ad.agentName} • ${ad.city}",
+                                    color = AccentYellow,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Dot indicator
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    repeat(cityAds.size) { index ->
+                        Box(
+                            modifier = Modifier
+                                .size(if (pagerState.currentPage == index) 8.dp else 5.dp)
+                                .clip(CircleShape)
+                                .background(if (pagerState.currentPage == index) AccentYellow else Color.White.copy(alpha = 0.4f))
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CityAgentsListSection(
+    selectedCity: String,
+    onOpenAgentProfile: (agentName: String, city: String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val agents = remember(selectedCity) {
+        listOf(
+            Triple("مهندس کیان آریا", "املاک مدرن شمیران", "۸ تور فعال"),
+            Triple("مهندس رضا کاسپینی", "املاک کاسپین مازندران", "۵ تور فعال"),
+            Triple("مهندس نیما راد", "املاک آفتاب شمال", "۴ تور فعال")
+        )
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(Icons.Default.Person, contentDescription = null, tint = AccentYellow)
+                Text(
+                    text = "مشاورین املاک برتر در شهر $selectedCity",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(agents) { (agentName, agencyName, toursCount) ->
+                Card(
+                    modifier = Modifier.width(200.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box {
+                            Surface(
+                                shape = CircleShape,
+                                color = BrandPrimary,
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.Person,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(26.dp)
+                                    )
+                                }
+                            }
+                            // Online indicator dot
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .size(12.dp)
+                                    .background(Color(0xFF4CAF50), CircleShape)
+                                    .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = agentName,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Text(
+                            text = agencyName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AccentYellow,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Text(
+                            text = "$selectedCity • $toursCount",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = { onOpenAgentProfile(agentName, selectedCity) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(34.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = BrandSecondary),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "مشاهده پروفایل",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
             }
         }
     }

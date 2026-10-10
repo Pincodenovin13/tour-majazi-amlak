@@ -1338,6 +1338,22 @@ private fun CaptureHud(
                 }
             }
 
+            if (onSwitchToManual != null) {
+                Surface(
+                    shape = CircleShape,
+                    color = GlassSurface,
+                    shadowElevation = 8.dp,
+                ) {
+                    IconButton(onClick = onSwitchToManual) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = "حالت دستی ۳۶۰°",
+                            tint = SphereAccent,
+                        )
+                    }
+                }
+            }
+
             AnimatedVisibility(
                 visible = canUndo,
                 enter = fadeIn() + scaleIn(initialScale = 0.8f),

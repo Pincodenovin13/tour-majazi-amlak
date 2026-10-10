@@ -57,7 +57,7 @@ fun Capture360Screen(
     }
 
     // Step state for manual flow
-    var isSelectingRooms by remember { mutableStateOf(false) }
+    var isSelectingRooms by remember { mutableStateOf(!isGyroAvailable) }
     var selectedRooms by remember {
         mutableStateOf(listOf(RoomCapturePreset("living_room", "پذیرایی", "Living Room", 8)))
     }
@@ -118,6 +118,9 @@ fun Capture360Screen(
                 },
                 onAllRoomsComplete = {
                     Toast.makeText(context, "همه اتاق‌ها ثبت شدند! تور آماده است.", Toast.LENGTH_LONG).show()
+                },
+                onSelectRoomsClick = {
+                    isSelectingRooms = true
                 },
                 onBackClick = {
                     if (isGyroAvailable) {

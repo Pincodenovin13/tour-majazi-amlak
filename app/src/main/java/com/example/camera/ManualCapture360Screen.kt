@@ -149,6 +149,7 @@ fun ManualCapture360Screen(
     onRoomStitched: (room: RoomCapturePreset, sphere: StitchedSphere) -> Unit,
     onAllRoomsComplete: () -> Unit,
     onBackClick: () -> Unit,
+    onSelectRoomsClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -463,7 +464,10 @@ fun ManualCapture360Screen(
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = Color.Black.copy(alpha = 0.65f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, AccentYellow.copy(alpha = 0.5f))
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AccentYellow.copy(alpha = 0.5f)),
+                        modifier = Modifier.then(
+                            if (onSelectRoomsClick != null) Modifier.clickable { onSelectRoomsClick() } else Modifier
+                        )
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -482,6 +486,14 @@ fun ManualCapture360Screen(
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.titleSmall
                             )
+                            if (onSelectRoomsClick != null) {
+                                Icon(
+                                    Icons.Default.ArrowDropDown,
+                                    contentDescription = "انتخاب اتاق",
+                                    tint = AccentYellow,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
                     }
 

@@ -58,6 +58,23 @@ class AppRepository {
     private val _userTelegram = MutableStateFlow("@amlak_modern")
     val userTelegram: StateFlow<String> = _userTelegram.asStateFlow()
 
+    // Login state & Favorites for public home & guest browsing
+    private val _isLoggedIn = MutableStateFlow(false)
+    val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
+
+    private val _favoritePropertyIds = MutableStateFlow<Set<String>>(setOf("prop_1", "prop_3"))
+    val favoritePropertyIds: StateFlow<Set<String>> = _favoritePropertyIds.asStateFlow()
+
+    fun setLoggedIn(loggedIn: Boolean) {
+        _isLoggedIn.value = loggedIn
+    }
+
+    fun toggleFavorite(propertyId: String) {
+        _favoritePropertyIds.update { set ->
+            if (set.contains(propertyId)) set - propertyId else set + propertyId
+        }
+    }
+
     private val _referralCodeInput = MutableStateFlow("VR-98421") // Agent's referrer code
     val referralCodeInput: StateFlow<String> = _referralCodeInput.asStateFlow()
 
